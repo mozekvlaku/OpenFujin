@@ -1,7 +1,7 @@
 
 <h1 align="center">
   <br>
-  <a href="http://www.amitmerchant.com/electron-markdownify"><img src="docs/OpenFujinLogo.svg" alt="OpenFujin" width="500"></a>
+  <img src="./docs/OpenFujinLogo.svg" alt="OpenFujin" width="500">
   <br>
   OpenFujin
   <br>
