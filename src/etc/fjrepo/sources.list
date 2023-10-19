@@ -64,48 +64,4 @@
     "max_version": "*",
     "requires": ["nukernel@3.2.0_6"],
     "last_update": "2021-05-08 22:36:56"
-}, {
-    "name": "server23branding",
-    "comment": "Fujin Server '23 Branding",
-    "version": "1.0.0_0",
-    "newest_version": "1.0.0_0",
-    "package": "https:\/\/cdn.vespotok.net\/dist\/fujin-distros\/server23branding",
-    "update": false,
-    "min_version": "3.2.0",
-    "max_version": "*",
-    "requires": ["nukernel@3.2.0_6"],
-    "last_update": "2021-05-08 22:36:56"
-}, {
-    "name": "uniauth",
-    "comment": "Fujin Unified Auth",
-    "version": "1.0.0_0",
-    "newest_version": "1.1.0_0",
-    "package": "https:\/\/cdn.vespotok.net\/dist\/fujin-base@3.2\/uniauth",
-    "update": false,
-    "min_version": "3.2.0",
-    "max_version": "*",
-    "requires": ["nukernel@3.2.0_6"],
-    "last_update": "2021-05-08 22:36:56"
-}, {
-    "name": "raijin",
-    "comment": "Fujin Raijin UI",
-    "version": "3.2.0_0",
-    "newest_version": "3.2.0_0",
-    "package": "https:\/\/cdn.vespotok.net\/dist\/fujin-base@3.2\/raijin",
-    "update": false,
-    "min_version": "3.2.0",
-    "max_version": "*",
-    "requires": ["nukernel@3.2.0_6"],
-    "last_update": "2021-05-08 22:36:56"
-}, {
-    "name": "tester",
-    "comment": "FujinX Kernel",
-    "version": "3.2.0_7",
-    "newest_version": "3.2.0_7",
-    "package": "https:\/\/cdn.vespotok.net\/dist\/fujin-appstore\/tester",
-    "update": false,
-    "min_version": "3.2.0",
-    "max_version": "*",
-    "requires": [],
-    "last_update": "2021-05-08 22:36:56"
 }]
