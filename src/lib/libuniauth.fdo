@@ -1,0 +1,244 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * Fujin Package - Packaging Format for Fujin
+ * 
+ * This class is used to give functionality to /bin/fjrepo
+ * and Fujin AppCenter applications
+ * 
+ * 
+ * @package     FujinPackage
+ * @subpackage  LibFuj
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin;
+
+use Exception;
+use Fujin\Framework\Helper\FileSystem\ConfigManager;
+use Fujin\Kernel\Fujin;
+
+class LibUniAuth extends FujinDynamicObject 
+{
+    private ConfigManager $conf;
+    private ConfigManager $localdomain;
+    private string $run_mode;
+    protected function init() : void
+    {
+        $this->conf = new ConfigManager("/etc/auth/", "auth");
+        $this->localdomain = new ConfigManager("/etc/", "localdomain");
+        $this->run_mode = $this->conf->get_information("mode");
+    }
+
+    public function add_user($username, $password, $shell, $gui, $name, $surname, $email, $phone) : array {
+        if ($this->run_mode == "local") {
+            $localdomain = new ConfigManager("/etc/", "localdomain");
+            $users = $localdomain->get_information("userObjects");
+            $new_fjid = $this->generate_fjid();
+            $shadows = file_get_contents(FUJIN_ROOT."/etc/shadow");
+            $options = [
+                'cost' => 12,
+            ];
+            $passhash = password_hash($password, PASSWORD_BCRYPT, $options);
+            $new_shadow = $new_fjid . ":" . $passhash;
+            $shadows .= "\n" . $new_shadow;
+            file_put_contents(FUJIN_ROOT. "/etc/shadow", $shadows);
+            $new_user = array(
+                "fujinId" => $new_fjid,
+                "userPrincipalName" => $username,
+                "samAccountName" => $username,
+                "fujinSh" => $shell,
+                "fujinGui" => $gui,
+                "dn" => $name . " " . $surname,
+                "name" => $name,
+                "sn" => $surname,
+                "thumbnailPhoto" => "",
+                "email" => $email,
+                "displayName" => $name . " " . $surname,
+                "telephoneNumber" => $phone,
+                "memberOf" => array(
+                    "dn=Users,".$this->get_domain()["dn"]
+                )
+            );
+            array_push($users, $new_user);
+            $localdomain->set_information("userObjects", $users);
+            Fujin::c()->IFileSystem(1)->mkdir("/home/" . $username, $username);
+            Fujin::c()->IFileSystem(1)->mkdir("/home/" . $username . "/etc", $username);
+            Fujin::c()->IFileSystem(1)->mkdir("/home/" . $username . "/documents", $username);
+            Fujin::c()->IFileSystem(1)->mkdir("/home/" . $username . "/music", $username);
+            Fujin::c()->IFileSystem(1)->mkdir("/home/" . $username . "/photos", $username);
+            Fujin::c()->IFileSystem(1)->mkdir("/home/" . $username . "/public", $username);
+        } else {
+            return array(
+                "message" => "Cannot add a user with useradd, use Fujin Domains console."
+            );
+        }
+    }
+
+    private function generate_fjid() : string
+    {
+        $prefix = 'fjid_fj3_';
+        $uniqueId = uniqid();
+        return $prefix . $uniqueId;
+    }
+
+    public function get_domain() : array {
+        if ($this->run_mode == "local") {
+            $localdomain = new ConfigManager("/etc/", "localdomain");
+            return $localdomain->get_information("domainName");
+        } else {
+            // Dodělat někdy
+            return array();
+        }
+    }
+
+    public function get_users() : array {
+        if($this->run_mode == "local")
+        {
+            $localdomain = new ConfigManager("/etc/", "localdomain");
+            return $localdomain->get_information("userObjects");
+        }
+        else
+        {
+            // Dodělat někdy
+            return array();
+        }
+    }
+
+    private function local_try_login($username, $password)
+    {
+        return $this->get_token($username, $password);
+    }
+
+
+    private function remote_try_login($username, $password, $domain, $domain_server)
+    {
+        $ch = curl_init($domain_server . "login?username=" . htmlentities($username) . "&password=" . $password . "&domain=" . $domain);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HEADER, 0);
+        $data = curl_exec($ch);
+        
+        curl_close($ch);
+        return json_decode($data);
+    }
+
+    public function try_login($username, $password, $domain = "", $domain_server = "") {
+        if ($this->run_mode == "local") {
+            return $this->local_try_login($username, $password);
+        } else {
+           return  $this->remote_try_login($username, $password, $domain, $domain_server);
+        }
+    }
+
+    private function get_token($username, $password)
+    {
+        $users = $this->localdomain->get_information("userObjects");
+        $shadows = explode("\n", file_get_contents(FUJIN_ROOT . "/etc/shadow"));
+        foreach ($users as $user) {
+            if ($user["samAccountName"] == $username) {
+                foreach ($shadows as $shadow) {
+                    $shadow_arr = explode(":", $shadow);
+                    if ($user["fujinId"] == $shadow_arr[0]) {
+
+                        /* $options = [
+                            'cost' => 12,
+                        ];
+                        $passhash = password_hash($password, PASSWORD_BCRYPT, $options);
+                      */
+                        if (password_verify($password, $shadow_arr[1])) {
+                            $_SESSION["fjx_shadow"] = $shadow_arr[1];
+                            $_SESSION["fjx_auth_sessiontoken"] = uniqid("FUJINDOMAINS");
+                            $_SESSION[$_SESSION["fjx_auth_sessiontoken"]] = $this->load_user($username, $shadow_arr[1]);
+                            
+                            return array(
+                                "status" => "success",
+                                "user" => $user,
+                                "token" => $_SESSION["fjx_auth_sessiontoken"]
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        return array(
+            "status" => "error"
+        );
+    }
+
+    private function load_user($username, $password)
+    {
+        $users = $this->localdomain->get_information("userObjects");
+        foreach ($users as $user) {
+            if ($user["samAccountName"] == $username) {
+                $array = array(
+                    "FJID" => $user["fujinId"],
+                    "USERNAME" => $user["samAccountName"],
+                    "PASSWORD" => $password,
+                    "ISACTIVE" => "1",
+                    "ADMIN" => "yes",
+                    "FJGROUP" => "root",
+                    "USERGROUPS" => "root,sudoer",
+                    "SH" => $user["fujinSh"],
+                    "GUI" => $user["fujinGui"],
+                    "NAME" => $user["name"],
+                    "SURNAME" => $user["sn"],
+                    "PROFILE_PIC" => $user["thumbnailPhoto"],
+                    "EMAIL" => $user["email"],
+                    "PHONE" => $user["telephoneNumber"],
+                    "ADDRESS_ID" => "",
+                    "PERMISSIONS" => ""
+                );
+                return $array;
+            }
+        }
+    }
+
+    public function check_username($username, $domain_server = "")
+    {
+        if($this->run_mode == "local")
+        {
+            return $this->local_check_username($username);
+        }
+        else
+        {
+            return $this->remote_check_username($username, $domain_server);
+        } 
+    }
+
+    private function local_check_username($username)
+    {
+        $localdomain = $this->localdomain->get_information("domainName");
+        return array(
+            "status" => "success",
+            "domain" => $localdomain,
+            "user" => array(
+                "name" => $username
+            )
+        );
+    }
+    private function remote_check_username($username, $domain_server)
+    {
+        $ch = curl_init($domain_server . "domain?username=" . htmlentities($username));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HEADER, 0);
+        $data = curl_exec($ch);
+       
+        curl_close($ch);
+
+        return json_decode($data);
+    }
+}

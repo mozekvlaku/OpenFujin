@@ -1,0 +1,92 @@
+<?php
+//SH
+/**
+ * Fujin Version 3
+ * 
+ * uname command
+ */
+namespace Fujin\ConsoleApps;
+use \Fujin\Framework\Kernel\ConsoleApplication;
+class uname extends ConsoleApplication
+{
+    const APP_NAME          = "uname";
+    const APP_ICON_GROUP    = "mimes";
+    const APP_ICON          = "text-x-php";
+    const APP_TYPE          = "cli";
+    protected function main($args): void
+    {
+        $this->ch("-s", function (){$this->print_sp($this->getFujinName());});
+        $this->ch("-n", function (){$this->print_sp($this->getFujinHost());});
+        $this->ch("-m", function (){$this->print_sp($this->getPlatform());});
+        $this->ch("-r", function (){$this->print_sp($this->getFujinRelease());});
+        $this->ch("-v", function (){$this->print_sp($this->getFujinVersion());});
+        $this->ch("-h", function (){$this->print_sp($this->getHostingSystem());});
+        $this->ch("--help", function (){$this->print_sp($this->getHelp());});
+        $this->ch("-h", function (){$this->print_sp($this->getHostingSystem());});
+        $this->ch("-a", function (){$this->print_sp($this->getFujinName() . " " . $this->getFujinHost() . " " . $this->getFujinRelease() . " " . $this->getFujinVersion() . " " . $this->getPlatform());});
+        $this->df(function (){$this->print_sp($this->getFujinName());});
+        $this->print_ln();
+        $this->sys_exit(0);
+    }
+    
+    function getFujinName()
+    {
+        return $_SESSION["fjx_ver"]->uname;
+    }
+    function getFujinHost()
+    {
+        return php_uname("n");
+    }
+    function getFujinRelease()
+    {
+        return $_SESSION["fjx_ver"]->ver_major.".". $_SESSION["fjx_ver"]->ver_minor;
+    }
+    function getFujinVersion()
+    {
+        return $_SESSION["fjx_ver"]->uname . " " . $_SESSION["fjx_ver"]->ver_codename;
+    }
+    function getPlatform()
+    {
+        return php_uname("m");
+    }
+    function getHostingSystem()
+    {
+        return php_uname("a");
+    }
+
+    function getHelp()
+    {
+        return
+                "NAME
+               uname - print system information
+
+        SYNOPSIS
+               uname [OPTION]...
+
+        DESCRIPTION
+               Print certain system information.  With no OPTION, same as -s.
+
+               -a
+                      print  all information, in the following order, except omit
+                      -p and -i if unknown:
+               -s
+                      print the kernel name
+
+               -n
+                      print the network node hostname
+
+               -r 
+                      print the kernel release
+
+               -v
+                      print the kernel version
+
+               -m
+                      print the machine hardware name
+
+               -h
+                      print the hosting system ";
+    }
+
+}
+?>

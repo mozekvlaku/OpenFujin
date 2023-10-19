@@ -1,0 +1,100 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinPackage
+ * @subpackage  PacMan
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\FujPkg;
+
+class Repository
+{
+    private string $name;
+    private string $comment;
+    private string $url;
+
+    private const REPOS_FILE = "/etc/fjrepo/repo.list";
+
+    public function __construct(string $url)
+    {
+        $tmp = explode("/", $url);
+        array_pop($tmp);
+        $url = implode("/", $tmp);
+        $this->url = $url;
+        $this->load_repository_info();
+    }
+
+    public function __serialize() : array {
+        $this->name = "NotInitialized";
+        $this->comment = "NotInitialized";
+        $this->load_repository_info();
+        return [
+            'name' => $this->name,
+            'comment' => $this->comment,
+            'url' => $this->url
+        ];
+    }
+
+    public function __unserialize(array $data): void
+    {
+        $this->name = $data['name'];
+        $this->comment = $data['comment'];
+        $this->url = $data['url'];
+    }
+
+    private function load_repository_info() : void {
+        $file = FUJIN_ROOT . self::REPOS_FILE;
+
+        $array = json_decode(file_get_contents($file));
+        foreach ($array as $repo) {
+            if($repo->url == $this->url) {
+                $this->name = $repo->name;
+                $this->comment = $repo->comment;
+            } 
+        }
+
+    }
+
+    public function get_repo_line() : string {
+        return $this->name . " - " . $this->comment . "\n" . $this->url . "\n";
+    }
+
+    /**
+     * Get the value of name
+     */ 
+    public function getName()
+    {
+        return $this->name;
+    }
+
+    /**
+     * Get the value of comment
+     */ 
+    public function getComment()
+    {
+        return $this->comment;
+    }
+
+    /**
+     * Get the value of url
+     */ 
+    public function getUrl()
+    {
+        return $this->url;
+    }
+}

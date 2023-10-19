@@ -1,0 +1,17 @@
+    [
+        {
+            "name": "fujin-appstore",
+            "comment": "Fujin Common AppStore repository",
+            "url": "https://cdn.vespotok.net/dist/fujin-appstore/"
+        },
+        {
+            "name": "fujin-distros",
+            "comment": "Fujin Brandings and Restrictions",
+            "url": "https://cdn.vespotok.net/dist/fujin-distros/"
+        },
+        {
+            "name": "fujin-base@3.2",
+            "comment": "Fujin 3.2 Basic System Parts",
+            "url": "https://cdn.vespotok.net/dist/fujin-base@3.2/"
+        }
+    ]

@@ -1,0 +1,105 @@
+<?php
+
+/** 
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinFramework
+ * @subpackage  Helpers
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\Framework\Helper\Kernel;
+
+class ScriptKit
+{
+    /**
+     * Function to fill Javascript container, if you wish to just add to
+     * container, use js_add
+     * 
+     * @param string $code - javascript
+     * @param string $container_id - smilecat javascript container id
+     * @param string $display - display used now, if blank, use current display
+     * @return void
+     */
+    public static function js(string $code, string $container_id, string $display = "auto"):void
+    {
+        /** Assuming this method is used in an active app */
+        if($display == "auto") { $display = $_SESSION['fjx_currentDisplay']; }
+        $pid = $_SESSION['fjx_currentTask'][$display];
+
+        if (!isset($_SESSION['fjx_jsarray'])) {
+            $_SESSION['fjx_jsarray'] = array();
+        }
+        $jsArray = $_SESSION['fjx_jsarray'];
+
+        $jsArray[$container_id] = base64_encode($code);
+
+        $_SESSION['fjx_jsarray'] = $jsArray;
+
+        if (!isset($_SESSION['fjx_jsgc'])) {
+            $_SESSION['fjx_jsgc'] = array();
+        }
+
+        $garbageCollector = $_SESSION['fjx_jsgc'];
+
+        if (!isset($garbageCollector[$pid])) {
+            $garbageCollector[$pid] = array();
+        }
+
+        array_push($garbageCollector[$pid], $container_id);
+
+        $_SESSION['fjx_jsgc'] = $garbageCollector;
+    }
+
+    /**
+     * Function to add to Javascript container
+     * 
+     * @param string $code - javascript
+     * @param string $container_id - smilecat javascript container id
+     * @param string $display - display used now, if blank, use current display
+     * @return void
+     */
+    public static function js_add(string $code, string $container_id, string $display = "auto"):void
+    {
+        /** Assuming this method is used in an active app */
+        if ($display == "auto") {
+            $display = $_SESSION['fjx_currentDisplay'];
+        }
+        $pid = $_SESSION['fjx_currentTask'][$display];
+        
+        if (!isset($_SESSION['fjx_jsarray'])) {
+            $_SESSION['fjx_jsarray'] = array();
+        }
+        $jsArray = $_SESSION['fjx_jsarray'];
+
+        $jsArray[$container_id] = base64_encode(base64_decode($jsArray[$container_id]) . "\n" . $code);
+
+        $_SESSION['fjx_jsarray'] = $jsArray;
+
+        if (!isset($_SESSION['fjx_jsgc'])) {
+            $_SESSION['fjx_jsgc'] = array();
+        }
+
+        $garbageCollector = $_SESSION['fjx_jsgc'];
+
+        if (!isset($garbageCollector[$pid])) {
+            $garbageCollector[$pid] = array();
+        }
+
+        array_push($garbageCollector[$pid], $container_id);
+
+        $_SESSION['fjx_jsgc'] = $garbageCollector;
+    }
+}

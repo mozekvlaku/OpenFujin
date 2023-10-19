@@ -1,0 +1,111 @@
+<?php
+//lib
+//actions/system-run
+/**
+*  Fujin Virtual Filesystem
+*
+*
+* Copyright Vespotok veDev (c) 2022
+* Misuse punishable by law
+*/
+
+namespace Fujin\Kernel\FjFs\Drivers;
+
+use Exception;
+use InvalidArgumentException;
+use Fujin\Kernel\FjFs\Path;
+use Fujin\Kernel\FjFs\DirectoryStore;
+class RealFileDriver extends FileSystemDriver {
+    public static function read(Path $path, $user = USER) {
+        if(is_file($path->get_full_root()))
+        {
+            if (DirectoryStore::has_permissions_to("r", $path, $user)) {
+                $filename = $path->get_full_root();
+                return file_get_contents($filename);
+            }
+            throw new Exception("You don't have permission to read this file.");
+        }
+        throw new Exception("This file does not exist.");
+    }
+    public static function write(Path $path, $contents, $user = USER)
+    {
+        if(file_exists($path->get_full_root()))
+        {
+            if (DirectoryStore::has_permissions_to("w", $path, $user)) {
+                $filename = $path->get_full_root();
+                return file_put_contents($filename, $contents);
+            }
+            throw new Exception("You don't have permission to write this file.");
+        }
+        else {
+            if (DirectoryStore::has_permissions_to("w", $path->get_parent_directory(), $user)) {
+                $filename = $path->get_full_root();
+                touch($filename);
+                return file_put_contents($filename, $contents);
+            }
+            throw new Exception("You don't have permission to create files in this directory.");
+        }
+    }
+    public static function mkdir(Path $path, $user = USER)
+    {
+        if (is_dir($path->get_full_root())) {
+            throw new Exception("This directory already exists.");
+        } else {
+            if (DirectoryStore::has_permissions_to("w", $path->get_parent_directory(), $user)) {
+                $filename = $path->get_full_root();
+                return mkdir($filename);
+            }
+            throw new Exception("You don't have permission to create directories in this directory.");
+        }
+    }
+    public static function rm(Path $path, $user = USER)
+    {
+        if(is_dir($path->get_full_root()))
+        {
+            throw new Exception("This is a directory.",25000);
+        }
+        if (file_exists($path->get_full_root())) {
+            if (DirectoryStore::has_permissions_to("d", $path, $user)) {
+                $filename = $path->get_full_root();
+                
+                return unlink($filename);
+            }
+            throw new Exception("You don't have permission to delete this file.");
+        } else {
+            throw new Exception("This file does not exist.");
+        }
+    }
+    public static function rmdir(Path $path, $user = USER)
+    {
+        if (is_file($path->get_full_root())) {
+            throw new Exception("This is a file.", 25000);
+        }
+        if (file_exists($path->get_full_root())) {
+            if (DirectoryStore::has_permissions_to("d", $path, $user)) {
+                $filename = $path->get_full_root();
+
+                return self::selfdirrm($filename);
+            }
+            throw new Exception("You don't have permission to delete this directory.");
+        } else {
+            throw new Exception("This directory does not exist.");
+        }
+    }
+    public static function selfdirrm($dirPath) {
+    if (! is_dir($dirPath)) {
+        throw new InvalidArgumentException("$dirPath must be a directory");
+    }
+    if (substr($dirPath, strlen($dirPath) - 1, 1) != DIRECTORY_SEPARATOR) {
+        $dirPath .= DIRECTORY_SEPARATOR;
+    }
+    $files = glob($dirPath . '*', GLOB_MARK);
+    foreach ($files as $file) {
+        if (is_dir($file)) {
+            self::selfdirrm($file);
+        } else {
+            unlink($file);
+        }
+    }
+    rmdir($dirPath);
+}
+}

@@ -1,0 +1,79 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     Kernel
+ * @subpackage  Objects
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\Kernel\Obj;
+
+use Fujin\Kernel\Fujin;
+
+class KernelObject
+{
+    const KERNEL_OBJECT_NAME = "UnknownKernelObj";
+    const KERNEL_OBJECT_VERSION = "UnknownKernelObjVersion";
+    const KERNEL_OBJECT_TYPE = "UnknownKernelObjType";
+    const KERNEL_OBJECT_PATH = "/nukernel/fujin.kernel";
+    const KERNEL_OBJECT_ICON = FUJIN_PATH . "/usr/share/identity/favicon-32x32.png";
+
+    public const RESERVED_PID = 999;
+
+    protected Fujin $kernel;
+    protected Task $kernel_task;
+    protected Task|null $scope_task;
+
+    public function __construct(Fujin $kernel, Task|null $scope_task = null)
+    {
+        $this->kernel = $kernel;
+        $this->scope_task = $scope_task;
+        $this->kernel_object_register_internal();
+        $this->kernel_object_register();
+    }
+
+    public final function assign_task(Task|null $task): void
+    {
+        $this->scope_task = $task;
+    }
+
+    protected function kernel_object_register(): void
+    {
+    }
+
+    protected function kernel_object_register_internal(): void
+    {
+        if ($this->kernel == null)
+            $kernel = Fujin::c();
+        else
+            $kernel = $this->kernel;
+
+        $task = $kernel->sci_task_exists(static::KERNEL_OBJECT_PATH);
+        if ($task == false) {
+            $this->kernel_task = new Task(static::KERNEL_OBJECT_PATH, "", 900, "root");
+            $this->kernel_task->set_name(static::KERNEL_OBJECT_NAME);
+            $this->kernel_task->set_meta(array(
+                "name" => static::KERNEL_OBJECT_NAME,
+                "icon" => self::KERNEL_OBJECT_ICON,
+                "type" => "kernelobject"
+            ));
+            $kernel->__int_scheduler()->register_task($this->kernel_task);
+        } else {
+            $this->kernel_task = $task;
+        }
+    }
+}

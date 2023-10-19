@@ -1,0 +1,7 @@
+{
+    "auth_bin": {
+        "tty": "/bin/auth",
+        "jsd": "/usr/share/auth",
+        "apd": "/bin/apish"
+    }
+}

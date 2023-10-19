@@ -1,0 +1,194 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     Kernel
+ * @subpackage  Objects
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\Kernel\Obj;
+
+class Task
+{
+    public int              $__task_pid;
+    private string          $__task_command;
+    private int             $__task_level;
+    private array           $__task_meta; 
+    private int             $__task_time;
+    private string          $__task_name;
+    private string          $__task_args;
+    private int             $__task_parent;
+    private string          $__task_owner;
+    private string          $__task_root;
+    private string          $__task_display;
+
+    public function __construct(string $command, string $args, int $parent, $owner = USER, $display = "stdout")
+    {
+        $this->__task_pid = 1001;
+        $this->__task_command = $command;
+        $this->__task_args = $args;
+        $this->__task_parent = $parent;
+        $this->__task_owner = $owner;
+        $tmp = explode(DIRECTORY_SEPARATOR, $command);
+        $tmp = end($tmp);
+        $this->__task_root = HOME;
+        $this->__task_name = explode(".",$tmp)[0];
+        $this->__task_level = 0;
+        $this->__task_meta = array();
+        $this->__task_time = time();
+        $this->__task_display = $display;
+        if($owner == "root")
+        {
+            $this->__task_level = 1;
+            $this->__task_root = '/';
+        }
+    }
+
+    public function get_root(): string
+    {
+        return $this->__task_root;
+    }
+
+    public function get_display(): string
+    {
+        return $this->__task_display;
+    }
+
+    public function get_owner(): string
+    {
+        return $this->__task_owner;
+    }
+
+    public function get_parent(): string
+    {
+        return $this->__task_parent;
+    }
+
+    public function set_pid(int $pid) : bool
+    {
+        if ($this->__task_pid != null)
+        {
+            $this->__task_pid = $pid;
+
+            return true;
+        }
+        return false;
+    }
+
+    public function set_name(string $name) : void
+    {
+        $this->__task_name = $name;
+    }
+
+    public function set_args(string $args): void
+    {
+        $this->__task_args = $args;
+    }
+
+    public function get_task_level() : int
+    {
+        return $this->__task_level;
+    }
+
+    public function set_meta(array $meta): void
+    {
+        $this->__task_meta = $meta;
+    }
+
+    public function get_args(): string
+    {
+        return $this->__task_args;
+    }
+
+    public function get_command(): string
+    {
+        return $this->__task_command;
+    }
+
+    public function get_meta(): array
+    {
+        return $this->__task_meta;
+    }
+
+    public function get_classname(): string
+    {
+        $tmp = explode(DIRECTORY_SEPARATOR, $this->__task_command);
+        $tmp = end($tmp);
+        return explode(".", $tmp)[0];
+    }
+    /**
+     * Returns task type
+     * Only KernelTask can start background proceses, so if
+     * parent is 900 - standard KernelTask PID, then 1 is
+     * returned as it is the background process type
+     * @return int - task type (0 foreground, 1 background, 2 init)
+     */
+    public function get_type() : int
+    {
+        if($this->__task_parent === 900)
+            return 1;
+        else if($this->__task_parent === 0)
+            return 2;
+        else if ($this->__task_parent === 1001)
+            return 3;
+        else
+            return 0;        
+    }
+
+    /**
+     * Task unserialization routine, used to bring
+     * the task from memory to memory
+     * @param array $data
+     */
+    public function __unserialize(array $data): void
+    {
+        $this->__task_name = $data['name'];
+        $this->__task_command = $data['bin'];
+        $this->__task_pid = $data['pid'];
+        $this->__task_args = $data['args'];
+        $this->__task_parent = $data['callbackPid'];
+        $this->__task_level = $data['su'];
+        $this->__task_root = $data['dir'];
+        $this->__task_display = $data['display'];
+        $this->__task_owner = $data['user'];
+        $this->__task_time = $data['time'];
+        $this->__task_meta = $data['title'];
+    }
+
+    /**
+     * Task serialization routine, used to save itself 
+     * to scheduler v3.1 compatible
+     * @return array
+     */
+    public function __serialize(): array
+    {
+        return [
+            'name' =>           $this->__task_name,
+            'bin' =>            $this->__task_command,
+            'pid' =>            $this->__task_pid,
+            'args' =>           $this->__task_args,
+            'callbackPid' =>    $this->__task_parent,
+            'su' =>             $this->__task_level,
+            'display' =>        $this->__task_display,
+            'dir' =>            $this->__task_root,
+            'user' =>           $this->__task_owner,
+            'time' =>           $this->__task_time,
+            'title' =>          $this->__task_meta,
+        ];
+    }
+
+}

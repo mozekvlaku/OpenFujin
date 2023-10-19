@@ -1,0 +1,155 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinPackage
+ * @subpackage  PacMan
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\FujPkg;
+
+class Package
+{
+    private string $name;
+    private string $comment;
+    private string $version;
+    private string $newest_version;
+    private string $last_update;
+    private bool $update;
+    private Repository $repository; 
+    private string $min_version;
+    private string $max_version;
+    private array $requires;
+
+    public function __construct(array $package_array) {
+        $this->name = $package_array["name"];
+        $this->comment = $package_array["comment"];
+        $this->version = $package_array["version"];
+        $this->newest_version = $package_array["newest_version"];
+        $this->repository = new Repository($package_array["package"]);
+        $this->update = $package_array["update"];
+        $this->last_update = $package_array["last_update"];
+        $this->min_version = $package_array["min_version"];
+        $this->max_version = $package_array["max_version"];
+        $this->requires = $package_array["requires"];
+    }
+
+    public function __serialize() : array {
+        return [
+            'name' => $this->name,
+            'comment' => $this->comment,
+            'version' => $this->version,
+            'newest_version' => $this->newest_version,
+            'package' => $this->repository->getUrl(),
+            'update' => $this->update,
+            'last_update' => $this->last_update
+        ];
+    }
+    public function to_array(): array
+    {
+        return array(
+            'name' => $this->name,
+            'comment' => $this->comment,
+            'version' => $this->version,
+            'newest_version' => $this->newest_version,
+            'package' => $this->repository->getUrl() . "/" . $this->name,
+            'update' => $this->update,
+            'min_version' => $this->min_version,
+            'max_version' => $this->max_version,
+            'requires' => $this->requires,
+            'last_update' => $this->last_update
+        );
+    }
+
+    public function __unserialize(array $data): void
+    {
+        $this->name = $data["name"];
+        $this->comment = $data["comment"];
+        $this->version = $data["version"];
+        $this->newest_version = $data["newest_version"];
+        $this->repository = new Repository($data["package"]);
+        $this->update = $data["update"];
+        $this->last_update = $data["last_update"];
+    }
+
+    public function get_package_line() : string {
+        return $this->name . "@" . $this->version . " (" . $this->comment . " " . $this->can_be_updated() . ")\n";
+    }
+
+    private function can_be_updated() : string {
+        if($this->version != $this->newest_version) {
+            return "[Newer version available]";
+        }
+        return "[OK]";
+    }
+
+    /**
+     * Get the value of repository
+     */ 
+    public function getRepository()
+    {
+        return $this->repository;
+    }
+
+    /**
+     * Get the value of update
+     */ 
+    public function getUpdate()
+    {
+        return $this->update;
+    }
+
+    /**
+     * Get the value of last_update
+     */ 
+    public function getLast_update()
+    {
+        return $this->last_update;
+    }
+
+    /**
+     * Get the value of newest_version
+     */ 
+    public function getNewest_version()
+    {
+        return $this->newest_version;
+    }
+
+    /**
+     * Get the value of version
+     */ 
+    public function getVersion()
+    {
+        return $this->version;
+    }
+
+    /**
+     * Get the value of comment
+     */ 
+    public function getComment()
+    {
+        return $this->comment;
+    }
+
+    /**
+     * Get the value of name
+     */ 
+    public function getName()
+    {
+        return $this->name;
+    }
+}

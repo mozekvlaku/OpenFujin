@@ -1,0 +1,78 @@
+<?php
+//SH
+
+namespace Fujin\ConsoleApps;
+
+use Exception;
+use Fujin\Framework\Kernel\ConsoleApplication;
+
+class cat extends ConsoleApplication
+{
+    const APP_NAME          = "Category";
+    const APP_ICON_GROUP    = "mimes";
+    const APP_ICON          = "text-x-php";
+    const APP_TYPE          = "cli";
+
+    private bool $print_line_numbers  = false;
+    private bool $print_dollar_at_end = false;
+
+    protected function main(array $args): void
+    {
+        $this->ch("-n", function () {
+            $this->print_line_numbers = true;
+        });
+        $this->ch("-b", function () {
+            $this->print_line_numbers = true;
+        });
+        $this->ch("-e", function () {
+            $this->print_dollar_at_end = true;
+        });
+        $path = $this->parse_path($args);
+        try {
+            $file_contents = $this->__fs()->read($path);
+            if(!$this->print_line_numbers && !$this->print_dollar_at_end)
+                $this->print_ln($file_contents);
+            else
+            {
+                $lines = explode("\n", $file_contents);
+                foreach($lines as $key=>$line)
+                {
+                    $prefix = "";
+                    $suffix = "";
+                    if($this->print_line_numbers)
+                        $prefix = "[0;3m".$key . "[0;9m ";
+
+                    if ($this->print_dollar_at_end)
+                    {
+                        $line = rtrim($line);
+                        $suffix = "[0m $[0m";
+                    }
+                       
+
+
+                    $this->print_ln($prefix . $line . $suffix);
+                }
+            }   
+            
+        }
+        catch (Exception $e)
+        {
+            $this->print_err($e->getMessage());
+        }
+        $this->sys_exit(0);
+    }
+    private function parse_path(array $path): string
+    {
+        $path = $path["m"][0];
+        if ($path[0] == DIRECTORY_SEPARATOR) {
+            return $path;
+        }
+        if ($path[0] == ".") {
+            $local_path = substr($path, 1);
+            return $this->kernel->IFileSystem($this->me)->pwd() . $local_path;
+        }
+        
+        return $path;
+    }
+}
+?>

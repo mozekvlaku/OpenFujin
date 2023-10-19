@@ -1,0 +1,28 @@
+<?php
+//lib
+//actions/system-run
+/**
+*  Fujin Virtual Filesystem
+*
+*
+* Copyright Vespotok veDev (c) 2022
+* Misuse punishable by law
+*/
+
+namespace Fujin\Kernel\FjFs\Drivers;
+
+use Fujin\Kernel\FjFs\Path;
+class FileSystemDriver {
+    public static function read(Path $path) {
+       
+    }
+    public static function write(Path $path, $contents)
+    {
+    }
+    public static function list(Path $path)
+    {
+    }
+    public static function rm(Path $path, $user)
+    {
+    }
+}

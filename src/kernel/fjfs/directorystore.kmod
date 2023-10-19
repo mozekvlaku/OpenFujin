@@ -1,0 +1,382 @@
+<?php
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * 
+ * DirStore
+ * 
+ * DS_FILES - store of files in directory
+ * DS_ICON - icon of the directory
+ * DS_COMMENT - commentary of the directory
+ * DS_ACCESS - who has access to this directory
+ *  AS_OWNER - owner of directory
+ *  AS_OTHER - other users/groups who has access (not on list have no access)
+ *      u - user, g - group, d - domain user, k - domain group
+ *      r - read directory contents, w - write to directory new files, x - execute from dir, d - delete from
+ *          dir. Total access (r) has root and rooters group
+ */
+namespace Fujin\Kernel\FjFs;
+
+use Fujin\Kernel\FjFs\Drivers\DevFileDriver;
+
+class DirectoryStore {
+    private const DIRSTORE_FILE = "_DirStore";
+    private const SYSFILES = array(".", "..", "_dir", "_DirStore", "desktop.ini", ".DS_Store");
+    private static function generate_dirstore(Path $path) : string {
+        $dirstore_array = array(
+            "DS_INFO" => array(
+                "IN_NAME" => "FujinFS Directory Store",
+                "IN_CREATED" => date("Y-m-d h:i:sa"),
+                "IN_FJVER" => VER
+            ),
+            "DS_FILES" => self::generate_ds_files($path),
+            "DS_ICON" => array(
+                "IC_NAME" => "folder",
+                "IC_NAMESPACE" => "places"
+            ),
+            "DS_COMMENT" => "",
+            "DS_ALTNAME" => array(),
+            "DS_ACCESS" => array(
+                "AS_OWNER" => "root",
+                "AS_GROUP" => "root",
+                "AS_OTHER" => array(
+                    array("u","rooters",array("r","w","x","r","d")),
+                    array("u","everyone",array("r")),
+                    array("g","fujinusr",array("r"))
+                )
+            ),
+            "DS_CACHE" => array(
+                "CA_SIZE" => 0,
+                "CA_FILES_CHECKSUM" => self::size($path->get_full_root())
+            )
+        );
+        return json_encode($dirstore_array);
+    }
+
+    public static function size($path, $recursive = false)
+    {
+        $result = 0;
+
+        $path .= DIRECTORY_SEPARATOR;
+
+        if (is_dir($path) === true) {
+            $files = array_diff(scandir($path), array('.','..', '_DirStore'));
+
+            foreach ($files as $file) {
+                if (is_dir($path . $file) === true) {
+                    $result += ($recursive === true) ? self::size($path . $file, $recursive) : 2;
+                } else if (is_file($path . $file) === true) {
+                    $result += sprintf('%u', filesize($path . $file)) + 1;
+                }
+            }
+        } else if (is_file($path) === true) {
+            $result += sprintf('%u', filesize($path))+1;
+        }
+
+        return $result;
+    }
+
+    public static function generate_ds_files(Path $path) : array
+    {
+        $virtual_dirs = array(
+            FUJIN_ROOT. DIRECTORY_SEPARATOR . "proc",
+            FUJIN_ROOT. DIRECTORY_SEPARATOR . "fjdb",
+            FUJIN_ROOT. DIRECTORY_SEPARATOR . "dev",
+            FUJIN_ROOT. DIRECTORY_SEPARATOR . "run",
+            FUJIN_ROOT. DIRECTORY_SEPARATOR . "sys"
+        );
+        $ds_files = array();
+        $contents = scandir($path->get_full_root());
+        if($path->is_root())
+        {
+            array_push($contents, "dev");
+            array_push($contents, "sys");
+            array_push($contents, "proc");
+            array_push($contents, "run");
+            array_push($contents, "fjdb");
+        }
+        for($i = 0; $i < count($contents); $i++)
+        {
+            if(in_array($contents[$i], self::SYSFILES)){
+                continue;
+            }
+            $path_full = str_replace("//", DIRECTORY_SEPARATOR, $path->get_full_root() . DIRECTORY_SEPARATOR . $contents[$i]);
+            $owner = "root";
+            $group = "root";
+            $ot = array(
+                array("u", "rooters", array("r", "w", "x", "r", "d")),
+                array("u", "everyone", array("r")),
+                array("g", "fujinusr", array("r"))
+            );
+            if($path->is_in_home())
+            {
+                $owner = USER;
+                $group = USER;
+                $ot = array(
+                    array("u", "rooters", array("r", "w", "x", "r", "d"))
+                );
+            }
+
+            $time = 1659572778;
+            $size = 0;
+            $mime = 'directory';
+            if(!in_array($path_full, $virtual_dirs))
+            {
+                $time = filectime($path_full);
+                $mime = mime_content_type($path_full);
+                $size = filesize($path_full);
+            }
+            $file_array = array(
+                "FN" => $contents[$i],
+                "TM" => $time,
+                "MM" => $mime,
+                "OW" => $owner,
+                "OT" => $ot,
+                "SZ" => $size,
+                "OG" => $group,
+                "VS" => true
+            );
+            array_push($ds_files,$file_array);
+        }
+        return $ds_files;
+    }
+
+    public static function update_ds_files(Path $path, array $current_dirstore, array $change = null) : array {
+        $ds_files = $current_dirstore["DS_FILES"];
+        $virtual_dirs = array(
+            FUJIN_ROOT . DIRECTORY_SEPARATOR . "proc",
+            FUJIN_ROOT . DIRECTORY_SEPARATOR . "fjdb",
+            FUJIN_ROOT . DIRECTORY_SEPARATOR . "dev",
+            FUJIN_ROOT . DIRECTORY_SEPARATOR . "run",
+            FUJIN_ROOT . DIRECTORY_SEPARATOR . "sys"
+        );
+        if($ds_files == null)
+        {
+            $ds_files = self::generate_ds_files($path);
+        } 
+        $new_ds_files = array();
+        $ds_files_existing = array();
+
+        $current_files = scandir($path->get_full_root());
+        if ($path->is_root()) {
+            array_push($current_files, "dev");
+            array_push($current_files, "sys");
+            array_push($current_files, "proc");
+            array_push($current_files, "run");
+            array_push($current_files, "fjdb");
+        }
+        foreach($ds_files as $file)
+        {
+            if(in_array($file["FN"], $current_files))
+            {
+                if($change != null)
+                {
+                    if($change["FN"] == $file["FN"])
+                    {
+                        if(isset($change["OW"]))
+                            $file["OW"] = $change["OW"];
+
+                        if(isset($change["OT"]))
+                            $file["OT"] = $change["OT"];
+
+                        if (isset($change["OG"]))
+                            $file["OG"] = $change["OG"];
+                    }
+                }
+
+                $path_full = str_replace("//", DIRECTORY_SEPARATOR, $path->get_full_root() .  DIRECTORY_SEPARATOR . $file["FN"]);
+                $time = 1659572778;
+                $size = 0;
+                $mime = 'directory';
+                if (!in_array($path_full, $virtual_dirs)) {
+                    $time = filectime($path_full);
+                    $size = filesize($size);
+                    $mime = mime_content_type($path_full);
+                }
+                $file["TM"] = $time;
+                $file["SZ"] = $size;
+                $file["MM"] = $mime;
+                array_push($new_ds_files, $file);
+            }
+            array_push($ds_files_existing, $file["FN"]);
+        }
+        foreach ($current_files as $file) {
+            if (!in_array($file, $ds_files_existing)) {
+                if (in_array($file, self::SYSFILES)) {
+                    continue;
+                }
+                $path_full = str_replace("//", DIRECTORY_SEPARATOR,$path->get_full_root() . DIRECTORY_SEPARATOR . $file);
+                $owner = "root";
+                $group = "root";
+                $ot = array(
+                        array("u", "rooters", array("r", "w", "x", "r", "d")),
+                        array("u", "everyone", array("r")),
+                        array("g", "fujinusr", array("r"))
+                    );
+
+                if ($path->is_in_home()) {
+                    $owner = USER;
+                    $group = USER;
+                    $ot = array(
+                        array("u", "rooters", array("r", "w", "x", "r", "d"))
+                    );
+                }
+                $time = 1659572778;
+                $mime = 'directory';
+                $size = 0;
+                if (!in_array($path_full, $virtual_dirs)) {
+                    $time = filectime($path_full);
+                    $size = filesize($path_full);
+                    $mime = mime_content_type($path_full);
+                }
+                $file_array = array(
+                    "FN" => $file,
+                    "TM" => $time,
+                    "SZ" => $size,
+                    "MM" => $mime,
+                    "OW" => $owner,
+                    "OG" => $group,
+                    "OT" => $ot
+                );
+                array_push($new_ds_files, $file_array);
+
+            }
+        }
+        return $new_ds_files;
+    }
+
+    public static function get_file_node(Path $path) : array|bool
+    {
+        $dirstore = self::read_dirstore($path->get_parent_directory());
+        $files = $dirstore["DS_FILES"];
+        $filename = $path->get_filename();
+        foreach($files as $file)
+        {
+            if($file["FN"] == $filename)
+            {
+                return $file;
+            }
+        }
+        return false;
+    }
+
+    public static function has_permissions_to(string $what, Path $path, string $object, string $type = "u") : bool
+    {
+        if ($object == "root" && $type == "u") {
+            return true;
+        }
+
+        if(is_dir($path->get_full_root()))
+        {
+            $dirstore = self::read_dirstore($path, false);
+            $access = $dirstore["DS_ACCESS"];
+            if ($access["AS_OWNER"] == $object) {
+                return true;
+            }
+
+            $other = $access["AS_OTHER"];
+            //echo json_encode($dirstore);
+            for ($i = 0; $i < count($other); $i++) {
+
+                if ($other[$i][0] == $type && $other[$i][1] == $object && in_array($what, $other[$i][2])) {
+                    return true;
+                }
+                if ($other[$i][0] == "u" && $other[$i][1] == "everyone" && in_array($what, $other[$i][2])) {
+                    return true;
+                }
+            }
+        }
+        else
+        {
+            
+            $access = self::get_file_node($path);
+
+            if ($access["OW"] == $object) {
+                return true;
+            }
+
+            if ($access["OG"] == $object && $type == "g") {
+                return true;
+            }
+
+            $other = $access["OT"];
+            for ($i = 0; $i < count($other); $i++) {
+
+
+                if ($other[$i][0] == $type && $other[$i][1] == $object && in_array($what, $other[$i][2])) {
+                    return true;
+                }
+                if ($other[$i][0] == "u" && $other[$i][1] == "everyone" && in_array($what, $other[$i][2])) {
+                    return true;
+                }
+            }
+        }
+
+        
+
+        return false;
+    }
+
+    public static function save_dirstore(Path $path, array $dirstore)
+    {
+        $path->add_separator();
+        $filename = $path->get_full_root() . self::DIRSTORE_FILE;
+        file_put_contents($filename, json_encode($dirstore));
+    }
+
+    public static function read_dirstore(Path $path, bool $update_dirstore = true) : ?array
+    {
+        $virtual = $path->is_virtual();
+        if($virtual)
+        {
+            switch($path->get_virtual_type())
+            {
+                case VirtualFolderType::DEV:
+                    $devdriver = new DevFileDriver();
+                    
+                    return $devdriver::list($path);
+                default:
+                break;
+            }
+        }
+        $path->add_separator();
+        $filename = $path->get_full_root() . self::DIRSTORE_FILE;
+ 
+        if(!is_file($filename))
+        {
+            $dirstore = self::generate_dirstore($path);
+            file_put_contents($filename, $dirstore);
+            $dirstore = json_decode($dirstore, true);
+        }
+        else
+        {
+            
+            $checksum = self::size($path->get_full_root());
+            $dirstore = json_decode(file_get_contents($filename), true);
+            $dirstore_checksum = $dirstore["DS_CACHE"]["CA_FILES_CHECKSUM"];
+
+            if (($checksum != $dirstore_checksum) && $update_dirstore) {
+                $dirstore["DS_FILES"] = self::update_ds_files($path, $dirstore);
+                $dirstore["DS_CACHE"]["CA_FILES_CHECKSUM"] = $checksum;
+                $dirstore["DS_INFO"]["IN_CREATED"] = date("Y-m-d h:i:sa");
+                self::save_dirstore($path, $dirstore);
+            }
+
+        }
+
+       
+        return $dirstore;
+    }
+}

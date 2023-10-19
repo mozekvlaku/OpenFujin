@@ -1,0 +1,202 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinFramework
+ * @subpackage  Helpers
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+namespace Fujin\Framework\Helper\FileSystem;
+
+use Exception;
+
+class ConfigManager
+{
+    private string $config_folder;
+    private string $template_config_folder;
+    private string $config_path;
+    private string $template_config_path;
+    private string $config_name;
+
+    private array $config_array;
+    
+    /**
+     * Class constructor
+     * @param string $config_folder - set config folder
+     * @param string $config_name - name of the config
+     */
+    public function __construct(string $config_folder, string $config_name, string $template_config_folder = "")
+    {
+        $this->config_name = $config_name;
+        $this->config_folder = FUJIN_ROOT. $config_folder;
+        $this->config_path = $this->config_folder . $config_name . ".fjconf";
+        $this->template_config_folder =  FUJIN_ROOT. $template_config_folder;
+        $this->template_config_path = $this->template_config_folder . $config_name . ".fjconf";
+
+        $this->load_config();
+    }
+
+    /**
+     * Function to load the config array
+     */
+    private function load_config() : void
+    {
+        if(!is_file($this->config_path))
+        {
+            if($this->template_config_folder != "" && is_file($this->template_config_path))
+            {
+                if(!is_dir($this->config_folder))
+                {
+                    mkdir($this->config_folder, 0777);
+                }
+                copy($this->template_config_path, $this->config_path);
+                $this->config_array = json_decode(file_get_contents($this->template_config_path), true);
+            }
+            else
+            {
+                throw new Exception("Invalid config file!" .$this->template_config_path);
+            }
+        }
+        else
+        {
+            $this->config_array = json_decode(file_get_contents($this->config_path), true);
+        }
+    }
+
+    /**
+     * Function to load the config array
+     */
+    private function save_config(): void
+    {
+        if (!is_file($this->config_path)) {
+            throw new Exception("Invalid config file! ".$this->config_path);
+        } else {
+            $myfile = fopen($this->config_path, "w") or die("Unable to open file!");
+            fwrite($myfile, json_encode((array)$this->config_array));
+            fclose($myfile);
+        }
+    }
+
+    /**
+     * Get an information from the config
+     * @param string $key - key of a value
+     * @return mixed
+     */
+    public function get_information(string $key) 
+    {
+        if(key_exists($key, $this->config_array))
+        {
+            return $this->config_array[$key];
+        }
+        else
+        {
+            return "Not a value.";
+        }
+    }
+
+    /**
+     * Get the whole config
+     * @return mixed
+     */
+    public function get_config_string() 
+    {
+        return json_encode($this->config_array);
+    }
+
+    /**
+     * Get the whole config
+     * @return array
+     */
+    public function get_config_array() : array
+    {
+        return $this->config_array;
+    }
+
+    /**
+     * Set an information to the config
+     * @param string $key - key of a value
+     * @param string $value - value of a key
+     * @return mixed
+     */
+    public function set_information(string $key, string|array $value, string $node = "0")
+    {
+        if($node != "0")
+        {
+            $node_array = explode(";", $node);
+            array_push($node_array, $key);
+            if (true) {
+                $this->config_array = $this->set_value_by_array($node_array, $this->config_array, $value);
+                $this->save_config();
+            } else {
+                return "Not a value. $node_array[0]";
+            }
+        }
+        else
+        {
+            if (key_exists($key, $this->config_array)) {
+                $this->config_array[$key] = $value;
+                $this->save_config();
+            } else {
+                return "Not a value.";
+            }
+        }
+    }
+
+    private function get_value_by_array($key, $arr)
+    {
+        $current_array = $arr;
+        foreach ($key as $k) {
+            if (array_key_exists($k, $current_array)) {
+                if (is_array($current_array[$k])) {
+                    $current_array = $current_array[$k];
+                } else {
+                    return $current_array[$k];
+                }
+            } else {
+                return false;
+            }
+        }
+    }
+
+    private function set_value_by_array($keys, $arr, $value)
+    {
+        // I know, this is ugly, but you know..
+        // TODO: make it prettier
+        switch(count($keys))
+        {
+            case 1:
+                $arr[$keys[0]] = $value;
+                return $arr;
+            case 2:
+                $arr[$keys[0]][$keys[1]] = $value;
+                return $arr;
+            case 3:
+                $arr[$keys[0]][$keys[1]][$keys[2]] = $value;
+                return $arr;
+            case 4:
+                $arr[$keys[0]][$keys[1]][$keys[2]][$keys[3]] = $value;
+                return $arr;
+            case 5:
+                $arr[$keys[0]][$keys[1]][$keys[2]][$keys[3]][$keys[4]] = $value;
+                return $arr;
+            case 6:
+                $arr[$keys[0]][$keys[1]][$keys[2]][$keys[3]][$keys[4]][$keys[5]] = $value;
+                return $arr;
+            default:
+                return $arr;
+        }
+    }
+}

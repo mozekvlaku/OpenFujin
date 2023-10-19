@@ -1,0 +1,152 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinPackage
+ * @subpackage  PacMan
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\FujPkg;
+
+use Fujin\FujinDynamicObject;
+
+class PacMan extends FujinDynamicObject
+{
+    const FDO_NAME          = "Package Manager";
+    const FDO_VERSION       = "1.0.0";
+
+    private array $packages;
+    private const PACKAGES_FILE = "/etc/fjrepo/sources.list";
+    private const REPOS_FILE    = "/etc/fjrepo/repo.list";
+
+    protected function init() : void {
+        $this->load_packages();
+    }
+
+    public function list_packages_string() : string {
+        $return_val = "System " . VER . " includes " . count($this->list_packages()) . " packages: \n\n"; 
+        foreach($this->list_packages() as $package) {
+            $return_val .= $package->get_package_line();
+        }  
+        return $return_val;
+    } 
+
+    public function list_packages() : array {
+        return $this->packages;
+    }
+
+    private function load_packages() : void {
+        $this->packages = array();
+        $file = FUJIN_ROOT . self::PACKAGES_FILE;
+        $array = json_decode(file_get_contents($file));
+        foreach ($array as $package) {
+            array_push($this->packages, new Package((array)$package));
+        }
+        $_SESSION["fjx_repo_packages_cache"] = $this->packages;
+    }
+
+    private function add_package($package) : void {
+        array_push($this->packages, new Package((array) $package));
+        $returns = array();
+        foreach ($this->packages as $package) {
+            array_push($returns, $package->to_array());
+        }
+        file_put_contents(FUJIN_ROOT.self::PACKAGES_FILE, json_encode($returns)) or die();
+    }
+
+    public function install_package_cli(string $identifier, callable $informer) : void {
+        $can_go = true;
+        foreach ($this->list_packages() as $package) {
+            if($package->getName() == $identifier)
+            {
+                $can_go = false;
+            }
+        }  
+
+        if($can_go == true)
+        {
+            $informer("Preparing for installation candidate $identifier");
+            $informer("Checking repositories for match...");
+            $package = $this->search_for_package($identifier);
+
+            if ($package == false) {
+                $informer("No package with $identifier name was found.\n");
+            } else {
+                $libfuj = new LibFuj();
+                $candidate = $libfuj->get_package($package["package"], $package["version"], $informer);
+                if($libfuj->install($candidate, $informer))
+                {
+                    $informer("Updating sources data store...");
+                    $this->add_package($package);
+                    $informer("Installation complete.");
+
+                }
+            }
+        }
+        else
+        {
+            $informer("Package $identifier is already installed.");
+        }
+    }
+
+    public function update_packages(callable $informer) : void
+    {
+        $informer("Preparing for update...");
+        $informer("Following packages are updated...");
+        foreach ($this->packages as $package) {
+            $version = $package->getVersion();
+            $package_url = $package->getRepository()->getUrl();
+            $remote_manifest = json_decode(file_get_contents($package_url . "/package.fjmanifest"));
+            $remote_version = $remote_manifest->version;
+            
+            $informer($package->getName()."@".$version . " -> " . $package->getName()."@".$remote_manifest);
+            if ($version != $remote_version) {
+                $package->newest_version = $remote_version;
+                $package->update = true;
+            }
+        }
+        $returns = array();
+        foreach ($this->packages as $package) {
+            array_push($returns, $package->to_array());
+        }
+        //file_put_contents(FUJIN_ROOT . self::PACKAGES_FILE, json_encode($returns)) or die();
+    }
+
+    private function search_for_package(string $identifier) : mixed
+    {
+        $return = false;
+        $core = CORE_VERSION;
+        $repos = json_decode(file_get_contents(FUJIN_PATH.self::REPOS_FILE));
+
+        foreach ($repos as $repo) {
+            $url = $repo->url . "sherlockd.php?package=$identifier&core_version=$core";
+          
+            $candidate = json_decode(file_get_contents($url));
+
+            if ($candidate->code == 1) {
+                // Not Found
+                continue;
+            }
+            if ($candidate->code == 0) {
+                // Found candidate
+                $return = (array)$candidate->package;
+                break;
+            }
+        }
+        return $return;
+    }
+}

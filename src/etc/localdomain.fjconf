@@ -1,0 +1,24 @@
+{
+    "schema": "http:\/\/schemas.vespotok.net\/fujin_domains\/localformat.jsonp",
+    "version": "Unified Fujin Login System 1.0",
+    "domainName": {
+        "domainName": "dev.co.vespotok.net",
+        "samDomainName": "VESPOTOKDEV",
+        "dn": "dc=dev,dc=co,dc=vespotok,dc=net"
+    },
+    "userObjects": [{
+        "fujinId": "fjid_fj3_54sdfs4864sdf6",
+        "userPrincipalName": "namulnae",
+        "samAccountName": "namulnae",
+        "fujinSh": "\/bin\/sh",
+        "fujinGui": "\/usr\/share\/raijin\/raijin.appf",
+        "dn": "Tom\u00e1\u0161 Krac\u00edk",
+        "name": "Tom\u00e1\u0161",
+        "sn": "Krac\u00edk",
+        "thumbnailPhoto": "https:\/\/vespotok.net\/namulnae.png",
+        "email": "kracik@vespotok.net",
+        "displayName": "Tom\u00e1\u0161 Krac\u00edk",
+        "telephoneNumber": "+420603580970",
+        "memberOf": ["dn=Users,dc=dev,dc=co,dc=vespotok,dc=net"]
+}]
+}

@@ -1,0 +1,9 @@
+{
+	"smtp_host": "",
+	"smtp_username": "",
+	"smtp_password": "",
+	"smtp_port": "",
+	"charset": "",
+	"email": "",
+	"fancy_name": ""
+}

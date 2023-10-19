@@ -1,0 +1,71 @@
+<?php
+//SH
+
+namespace Fujin\ConsoleApps;
+
+use Exception;
+use Fujin\Framework\Kernel\ConsoleApplication;
+use Fujin\FujPkg\PacMan;
+
+class fjrepo extends ConsoleApplication
+{
+    const APP_NAME          = "Fujin Repository";
+    const APP_ICON_GROUP    = "mimes";
+    const APP_ICON          = "text-x-php";
+    const APP_TYPE          = "cli";
+
+    private array $cliargs;
+    protected function main(array $args): void
+    {
+        $this->cliargs = $args;
+        $this->ch("-l", function () {
+            $this->print_ln($this->list_packages());
+        });
+        $this->ch("--list", function () {
+            $this->print_ln($this->list_packages());
+        });
+        $this->ch("--rebuild-cache", function () {
+            unset($_SESSION["fjx_repo_packages_cache"]);
+            $this->print_ln("Cache unset.");
+        });
+        $this->ms("list", function () {
+            $this->print_ln($this->list_packages());
+        });
+        $this->ms("install", function () {
+            $this->install();
+        });
+        $this->ms("update", function () {
+            $this->update_packages();
+        });
+        $this->ms("i", function () {
+            $this->install();
+        });
+        $this->sys_exit(130);
+    }
+
+    private function install() :void {
+        array_shift($this->cliargs["m"]);
+        $pacman = new PacMan();
+        $candidates = $this->cliargs["m"];
+        foreach ($candidates as $candidate) {
+            $pacman->install_package_cli($candidate, function($data) {
+                $this->print_ln($data);
+            });
+        }
+    }
+
+    private function list_packages(): string
+    {
+        $pacman = new PacMan();
+
+        return $pacman->list_packages_string();
+    }
+
+    private function update_packages() :void {
+        $pacman = new PacMan();
+        $pacman->update_packages(function ($data) {
+            $this->print_ln($data);
+        });
+    }
+}
+?>

@@ -1,0 +1,120 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinFramework
+ * @subpackage  Helpers
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+namespace Fujin\Framework\Helper\FileSystem;
+
+use Exception;
+
+class ManifestReader
+{
+    private string $manifest_folder;
+    private string $manifest_path;
+    private string $manifest_name;
+
+    private array $manifest_array;
+    
+    /**
+     * Class constructor
+     * @param string $manifest_folder - set manifest folder
+     * @param string $manifest_name - name of the manifest
+     * @param bool $use_fujin_root - set to false if supplying own root
+     */
+    public function __construct(string $manifest_folder, string $manifest_name, bool $use_fujin_root = true)
+    {
+        $this->manifest_array = array();
+        $this->manifest_name = $manifest_name;
+        if($use_fujin_root)
+        {
+            $this->manifest_folder = FUJIN_ROOT . $manifest_folder;
+        }
+        else
+        {
+            $this->manifest_folder = $manifest_folder;
+        }
+        $can_process = true;
+
+        if(!is_dir($this->manifest_folder))
+        {
+            $can_process = false;
+            echo "Error:This is not a valid directory! $manifest_folder";
+        }
+
+        $this->manifest_path = $this->manifest_folder . $manifest_name . ".fjmanifest";
+   
+        if (!is_file($this->manifest_path)) {
+            $can_process = false;
+            echo "Error:This is not a valid manifest! $manifest_folder/$manifest_name.fjmanifest";
+        }
+
+        if($can_process)
+            $this->load_manifest();
+    }
+
+    /**
+     * Function to load the manifest array
+     */
+    private function load_manifest() : void
+    {
+        if(!is_file($this->manifest_path))
+        {
+            throw new Exception("Invalid manifest file!");
+        }
+        else
+        {
+            $this->manifest_array = json_decode(file_get_contents($this->manifest_path), true);
+        }
+    }
+
+    /**
+     * Get an information from the manifest
+     * @param string $key - key of a value
+     * @return mixed
+     */
+    public function get_information(string $key)
+    {
+        if(key_exists($key, $this->manifest_array))
+        {
+            return $this->manifest_array[$key];
+        }
+        else
+        {
+            return "Not a value.";
+        }
+    }
+
+    /**
+     * Get the whole manifest
+     * @return mixed
+     */
+    public function get_manifest_string()
+    {
+        return json_encode($this->manifest_array);
+    }
+
+    /**
+     * Get the whole manifest
+     * @return array
+     */
+    public function get_manifest_array(): array
+    {
+        return $this->manifest_array;
+    }
+}

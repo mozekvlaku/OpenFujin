@@ -1,0 +1,80 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinFramework
+ * @subpackage  Helpers
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\Framework\Helper\Kernel;
+
+class Logging
+{
+    public string $file;
+    private string $logging_type;
+
+    public function __construct(string $filename, string $logging_type = "daily")
+    {
+        $this->file = $filename;
+        $this->logging_type = $logging_type;
+    }
+
+    public function log(string $level, $data, $uniqid = "") : void
+    {
+        if($uniqid == "")
+        {
+            $uniqid = uniqid();
+        }
+        $filename = FUJIN_ROOT . "/tmp/logging/";
+        switch($this->logging_type)
+        {
+            case "daily":
+                $filename .= "y" . date("Y") . "m" . date("n") .  "d" . date("j") . "/";
+            break;
+            case "weekly":
+                $filename .= "y" . date("Y") . "w" . date("W") . "/";
+            break;
+            case "monthly":
+                $filename .= "y" . date("Y") . "m" . date("n") . "/";
+            break;
+            default:
+                $filename .= "y" . date("Y") . "m" . date("n") . "/";
+            break;
+        }
+        if (!is_dir($filename)) {
+            mkdir($filename);
+        }
+        $filename .= $this->file;
+        
+        if(is_array($data) || is_object($data))
+        {
+            $filename .= "_data";
+            $data = json_encode($data);
+        }
+        $contents = "[$level] " . date("Y-m-d H:i") . " (I$uniqid-R" . $_SERVER['REMOTE_ADDR'] . "-U" . USER . ") - $data\n";
+        if($level == "ERROR")
+        {
+            $filename .= ".error_log";
+        }
+        else
+        {
+            $filename .= ".log";
+        }
+        
+        file_put_contents($filename, $contents, FILE_APPEND);
+    }
+}

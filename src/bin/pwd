@@ -1,0 +1,13 @@
+<?php
+//SH
+namespace Fujin\ConsoleApps;
+
+class pwd extends \Fujin\Framework\Kernel\ConsoleApplication
+{
+    protected function main(array $args) : void
+    {
+        $this->print_ln(WORKING_DIR);
+        $this->sys_exit(0);
+    }
+}
+?>

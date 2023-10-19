@@ -1,0 +1,124 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinPackage
+ * @subpackage  LibFuj
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\FujPkg;
+use Fujin\FujinDynamicObject;
+
+class LibFuj extends FujinDynamicObject
+{
+    const FDO_NAME          = "Fujin Package Library";
+    const FDO_VERSION       = "1.0.0";
+
+    private const PACKAGES_TEMP = "/tmp/fujpkg/";
+    private const PACKAGES_EXTRACTED_TEMP = "/tmp/fujpkg/extracted/";
+    protected function init(): void
+    {
+        if(!is_dir(FUJIN_ROOT . self::PACKAGES_TEMP))
+        {
+            mkdir(FUJIN_ROOT . self::PACKAGES_TEMP);
+        }
+        if (!is_dir(FUJIN_ROOT . self::PACKAGES_EXTRACTED_TEMP)) {
+            mkdir(FUJIN_ROOT . self::PACKAGES_EXTRACTED_TEMP);
+        }
+    }
+
+    public function install(string $package_path,callable $informer = null) : bool {
+        $zip = new \ZipArchive;
+        $extraction_folder = FUJIN_ROOT . self::PACKAGES_EXTRACTED_TEMP . uniqid("fujpkg");
+        if ($zip->open(FUJIN_ROOT.$package_path) === TRUE) {
+            $zip->extractTo($extraction_folder);
+            $zip->close();
+            
+            $this->full_copy($extraction_folder . "/root/", FUJIN_ROOT."/");
+            if ($informer != null) {
+                $informer("Installed package successfully.");
+            }
+            return true;
+        } else {
+            if ($informer != null) {
+                $informer("Package could not be installed.");
+            }
+            return false;
+        }
+
+        return false;
+    }
+
+    public function get_package(string $package_url, string $version, callable $informer = null) : string {
+        $package_name = end(explode("/", $package_url));
+        $filename = $package_name . "@" . $version . ".fuj";
+        $uri = $package_url . "/dist/" . $filename;
+        $package_info = json_decode(file_get_contents($package_url . "/fuj-tool.php"));
+        if($informer != null) {
+            $informer("Package $package_name found with version $version.");
+            $informer("Get: $uri  [" . $package_info->size . " kB]");
+        }
+        $this->download_package($uri, $filename);
+        if ($informer != null) {
+            $informer("Got: " . $package_info->filename);
+        }
+        return self::PACKAGES_TEMP . $filename;
+    }
+
+    private function download_package($url, $filename) : void {
+       
+        $newfname = FUJIN_ROOT . self::PACKAGES_TEMP . $filename;
+        $file = fopen($url, 'rb');
+        if ($file) {
+            $newf = fopen($newfname, 'wb');
+            if ($newf) {
+                while (!feof($file)) {
+                    fwrite($newf, fread($file, 1024 * 8), 1024 * 8);
+                }
+            }
+        }
+        if ($file) {
+            fclose($file);
+        }
+        if ($newf) {
+            fclose($newf);
+        }
+    }
+
+    private function full_copy($source, $target)
+    {
+        if (is_dir($source)) {
+            @mkdir($target);
+            $d = dir($source);
+            while (FALSE !== ($entry = $d->read())) {
+                if ($entry == '.' || $entry == '..') {
+                    continue;
+                }
+                $Entry = $source . '/' . $entry;
+                if (is_dir($Entry)) {
+                    $this->full_copy($Entry, $target . '/' . $entry);
+                    continue;
+                }
+                copy($Entry, $target . '/' . $entry);
+            }
+
+            $d->close();
+        } else {
+            copy($source, $target);
+        }
+    }
+}

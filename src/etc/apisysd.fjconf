@@ -1,0 +1,8 @@
+{
+    "vespotok.com": {
+        "permitted": [
+            "uname",
+            "/bin/uname"
+        ]
+    }
+}

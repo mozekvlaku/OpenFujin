@@ -1,0 +1,90 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinFramework
+ * @subpackage  Helpers
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+namespace Fujin\Framework\Helper\Messaging;
+
+use Fujin\Framework\Helper\FileSystem\ConfigManager;
+use Fujin\Framework\Helper\Messaging\Lib\PHPMailer;
+use Exception;
+
+class Mailing
+{
+    private PHPMailer $mail_provider;
+    private array $email_configuration;
+
+    /**
+     * Class constructor
+     */
+    public function __construct()
+    {
+        $configmail = new ConfigManager("/etc/", "mailer");
+        $this->mail_provider        = new PHPMailer(true);
+        $this->email_configuration  = $configmail->get_config_array();
+    }
+
+    /**
+     * Send an email message using the default
+     * email settings provided in /etc/mailer.fjconf
+     * @param string $email_address - email address
+     * @param string $html_message - HTML formatted message
+     * @param string $plaintext_message - message in plain text
+     * @param string $subject - message subject
+     * @param $attachment - attachment
+     * @param string $attachment_name - name of the attachment
+     * @return bool - if message sent, return true
+     */
+    public function send(string $email_address, string $html_message, string $plaintext_message, string $subject, $attachment = "", string $attachment_name = "") : bool
+    {
+        $return = false;
+        $mail = $this->mail_provider;
+        $conf = $this->email_configuration;
+        try {
+            $mail->SMTPDebug = 0;
+            $mail->isSMTP();
+            $mail->Host = $conf["smtp_host"];
+            $mail->SMTPAuth = true;
+            $mail->Username = $conf["smtp_username"];
+            $mail->Password = $conf["smtp_password"];
+            $mail->SMTPSecure = 'ssl';
+            $mail->Port = $conf["smtp_port"];
+            $mail->CharSet = 'UTF-8';
+            $mail->Encoding = 'base64';
+            $mail->setFrom($conf["email"], $conf["fancy_name"]);
+            $mail->addAddress($email_address);
+            $mail->addReplyTo($conf["email"], $conf["fancy_name"]);
+            $mail->isHTML(true);
+            if ($attachment_name != "") {
+                $mail->AddAttachment($attachment, $attachment_name);
+            }
+            $mail->Subject = $subject;
+            $mail->Body = $html_message;
+            $mail->AltBody = $plaintext_message;
+            $return = $mail->send();
+            $mail->Debugoutput = function ($str, $level) {
+                echo "debug level $level; message: $str";
+            };
+        } catch (Exception $e) {
+            echo 'Error:Message could not be sent. Mailer Error: ' . $mail->ErrorInfo;
+        }
+        return $return;
+    }
+
+}

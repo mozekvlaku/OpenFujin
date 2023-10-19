@@ -1,0 +1,50 @@
+<?php
+//SH
+
+/**
+ * [Fujin Executable]
+ * 
+ * Vespotok Fujin Init Daemon
+ * 
+ * Copyright (c) 2022 Vespotok veDev
+ * 
+ * @package     CoreApps
+ * @subpackage  Fujin SysD
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\ConsoleApps;
+
+use Fujin\Kernel\Fujin;
+use Fujin\Kernel\Obj\Executable;
+
+class GetTTY extends Executable
+{
+    // Default init executables
+    private const DEFAULT_SHELL     = "/bin/sh";
+    private const DEFAULT_AUTH      = "/bin/sh";
+
+    // Runtime init executables
+    private string $user_shell;
+
+    public function handle($args): void
+    {
+            $kernel = Fujin::c();
+            if (USER != "guest") {
+                if (!isset($_SESSION["FJACC_SETTINGS"]["SH"]))
+                    $this->user_shell = static::DEFAULT_SHELL;
+                else
+                    $this->user_shell = $_SESSION["FJACC_SETTINGS"]["SH"];
+            } else {
+                $this->user_shell = static::DEFAULT_AUTH;
+            }
+            $display = $this->me->get_display();
+            $tty_session = $kernel->sci_task_exists($this->user_shell, $display);
+            if ($tty_session == false) {
+                $tty_session = $kernel->sci_start_process($this->user_shell, $this->me, USER, $display);
+                $kernel->sci_set_task($tty_session, $display);
+                $kernel->sci_send_message($tty_session, "init(1)");
+            }  
+    }
+}
+?>

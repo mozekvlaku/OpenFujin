@@ -1,0 +1,43 @@
+<?php
+//SH
+namespace Fujin\ConsoleApps;
+
+use Exception;
+use Fujin\Framework\Kernel\ConsoleApplication;
+
+class rmdir extends ConsoleApplication
+{
+    const APP_NAME          = "RemoveDirectory";
+    const APP_ICON_GROUP    = "mimes";
+    const APP_ICON          = "text-x-php";
+    const APP_TYPE          = "cli";
+
+    protected function main(array $args): void
+    {
+        $path = $this->parse_path($args);
+        try {
+            $result = $this->__fs()->rmdir($path);
+
+            $this->print_ln("");
+        }
+        catch (Exception $e)
+        {
+            $this->print_err($e->getMessage());
+        }
+        $this->sys_exit(0);
+    }
+    private function parse_path(array $path): string
+    {
+        $path = $path["m"][0];
+        if ($path[0] == DIRECTORY_SEPARATOR) {
+            return $path;
+        }
+        if ($path[0] == ".") {
+            $local_path = substr($path, 1);
+            return $this->kernel->IFileSystem($this->me)->pwd() . $local_path;
+        }
+        
+        return $path;
+    }
+}
+?>

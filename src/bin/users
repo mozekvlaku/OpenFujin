@@ -1,0 +1,35 @@
+<?php
+//SH
+
+namespace Fujin\ConsoleApps;
+
+use Exception;
+use Fujin\Framework\Kernel\ConsoleApplication;
+use Fujin\LibUniAuth;
+
+class Users extends ConsoleApplication
+{
+    const APP_NAME          = "Users";
+    const APP_ICON_GROUP    = "mimes";
+    const APP_ICON          = "text-x-php";
+    const APP_TYPE          = "cli";
+
+    protected function main(array $args): void
+    {
+        $command = $args["m"][0];
+        $this->df(function() {
+            $userlib = new LibUniAuth();
+            $users = $userlib->get_users();
+            $domain = $userlib->get_domain();
+            $this->print_ln("Getting domain: " . $domain["dn"]);
+            $this->print_ln("\nLocal domain " . $domain["domainName"] . " contains " . count($users) . " user/s\n");
+
+
+            foreach($users as $user) {
+                $this->print_ln($user["userPrincipalName"] . " (".$domain["samDomainName"] . "/".$user["samAccountName"].") ");
+            }
+        });
+        $this->sys_exit(130);
+    }
+}
+?>

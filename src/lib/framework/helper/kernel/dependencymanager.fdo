@@ -1,0 +1,65 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinFramework
+ * @subpackage  Helpers
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\Framework\Helper\Kernel;
+
+use Fujin\Framework\Kernel\Application;
+use Fujin\Kernel\Fujin;
+
+class DependencyManager
+{
+    private Application $app;
+    /**
+     * Class constructor
+     * @param Application $app - 99% of times use $this
+     */
+    public function __construct(Application $app)
+    {
+        $this->app = $app;
+    }
+
+    /**
+     * Adds a dependency
+     * @param string $identifier - name of the dependency
+     * @param int $dependency_type - use DependencyType
+     */
+    public function add_dependency(string $identifier, int $dependency_type) : void
+    {
+        Fujin::IJavaScriptVM($this->app->get_me())->append_script("process-" . $this->app->pid . "-dep","enable_resource('$identifier',$dependency_type);", $this->app->pid);
+    }
+    /**
+     * Removes a dependency
+     * @param string $identifier - name of the dependency
+     * @param int $dependency_type - use DependencyType
+     */
+    public function remove_dependency(string $identifier, int $dependency_type): void
+    {
+        Fujin::IJavaScriptVM($this->app->get_me())->add_script("process-" . $this->app->pid . "-dep", "disable_resource('$identifier',$dependency_type);", $this->app->pid);
+    }
+}
+
+abstract class DependencyType
+{
+    const CSS_ONLY = 1;
+    const JS_ONLY = 2;
+    const CSS_JS = 3;
+}

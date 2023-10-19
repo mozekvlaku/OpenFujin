@@ -1,0 +1,162 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * @package     Kernel
+ * @subpackage  KernelObjects
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\Kernel;
+
+use Fujin\Kernel\Obj\KernelObject;
+
+/**
+ * Class JavaScriptVM
+ *
+ * Sends Javascript to a potential frontend
+ */
+class JavaScriptVM extends KernelObject
+{
+    /**
+     * The name of the JavaScript Virtual Machine kernel object.
+     */
+    const KERNEL_OBJECT_NAME = "JavaScriptVM";
+
+    /**
+     * The version of the JavaScript Virtual Machine kernel object.
+     */
+    const KERNEL_OBJECT_VERSION = "1.0";
+
+    /**
+     * The type of the JavaScript Virtual Machine kernel object.
+     */
+    const KERNEL_OBJECT_TYPE = "KoTypeVoluntary";
+
+    /**
+     * The path of the JavaScript Virtual Machine kernel object.
+     */
+    const KERNEL_OBJECT_PATH = "/nukernel/javascriptvm.ko";
+
+    /**
+     * Add a script to the virtual machine, overwriting any existing script with the same name.
+     *
+     * @param string $container The container name for the script.
+     * @param string $script The JavaScript script to add.
+     * @param int $pid The process ID to associate with the script (default is 1).
+     */
+    public function add_script_force(string $container, string $script, int $pid = 1): void
+    {
+        $this->add_script($container, $script . "/**" . rand(1000, 9999) . "*/", $pid);
+    }
+
+    /**
+     * Add a script to the virtual machine, possibly overwriting an existing script with the same name.
+     *
+     * @param string $container The container name for the script.
+     * @param string $script The JavaScript script to add.
+     * @param int $pid The process ID to associate with the script (default is 1).
+     */
+    public function add_script(string $container, string $script, int $pid = 1): void
+    {
+        $script = preg_replace(array("/\s+\n/", "/\n\s+/", "/ +/"), array("\n", "\n ", " "), $script);
+
+        if (!isset($_SESSION['fjx_jsarray'])) {
+            $_SESSION['fjx_jsarray'] = array();
+        }
+
+        $jsArray = $_SESSION['fjx_jsarray'];
+
+        $jsArray[$container] = base64_encode($script);
+
+        $_SESSION['fjx_jsarray'] = $jsArray;
+
+        if (!isset($_SESSION['fjx_jsgc'])) {
+            $_SESSION['fjx_jsgc'] = array();
+        }
+
+        $garbageCollector = $_SESSION['fjx_jsgc'];
+
+        if (!isset($garbageCollector[$pid])) {
+            $garbageCollector[$pid] = array();
+        }
+
+        array_push($garbageCollector[$pid], $container);
+
+        $_SESSION['fjx_jsgc'] = $garbageCollector;
+    }
+
+    /**
+     * Append a script to the existing script in the virtual machine with the same name.
+     *
+     * @param string $container The container name for the script.
+     * @param string $script The JavaScript script to append.
+     * @param int $pid The process ID to associate with the script (default is 1).
+     */
+    public function append_script(string $container, string $script, int $pid = 1): void
+    {
+        if (!isset($_SESSION['fjx_jsarray'])) {
+            $_SESSION['fjx_jsarray'] = array();
+        }
+
+        $jsArray = $_SESSION['fjx_jsarray'];
+
+        $jsArray[$container] = base64_encode(base64_decode($jsArray[$container]) . "\n" . $script);
+
+        $_SESSION['fjx_jsarray'] = $jsArray;
+
+        if (!isset($_SESSION['fjx_jsgc'])) {
+            $_SESSION['fjx_jsgc'] = array();
+        }
+
+        $garbageCollector = $_SESSION['fjx_jsgc'];
+
+        if (!isset($garbageCollector[$pid])) {
+            $garbageCollector[$pid] = array();
+        }
+
+        array_push($garbageCollector[$pid], $container);
+
+        $_SESSION['fjx_jsgc'] = $garbageCollector;
+    }
+
+    /**
+     * Garbage collect scripts associated with a specific process ID.
+     *
+     * @param int $pid The process ID for which to perform garbage collection.
+     */
+    public function garbage_collect(int $pid): void
+    {
+        if (!isset($_SESSION['fjx_jsarray'])) {
+            $_SESSION['fjx_jsarray'] = array();
+        }
+        if (!isset($_SESSION['fjx_jsgc'])) {
+            $_SESSION['fjx_jsgc'] = array();
+        }
+
+        $jsArray = $_SESSION['fjx_jsarray'];
+        $garbageCollector = $_SESSION['fjx_jsgc'];
+
+        if (isset($garbageCollector[$pid])) {
+            foreach ($garbageCollector[$pid] as $gc) {
+                $jsArray[$gc] = "";
+            }
+        }
+
+        $_SESSION['fjx_jsarray'] = $jsArray;
+        $_SESSION['fjx_jsgc'] = $garbageCollector;
+    }
+}

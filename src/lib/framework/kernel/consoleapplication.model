@@ -1,0 +1,116 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinFramework
+ * @subpackage  Kernel
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\Framework\Kernel;
+
+class ConsoleApplication extends Application
+{
+    /**
+     * 
+     * Sets prompt for terminal emulators
+     * @param string $prompt - prompt to show to users
+     * 
+     */
+    protected function set_prompt(string $prompt) : void
+    {
+        $_SESSION["fjx_prompt"] = $prompt;
+        //$this->kernel->IIO($this->me)->setprompt($prompt);
+    }
+
+    /**
+     * 
+     * Just deletes prompt alltogether
+     * 
+     */
+    protected function clear_prompt() : void
+    {
+        $this->kernel->IIO($this->me)->setprompt("");
+    }
+
+    /**
+     * 
+     * Print out with newline
+     * @param string $print - puts out on the screen
+     * 
+     */
+    protected function print_ln(string $print = "") : void
+    {
+        $this->kernel->IIO($this->me)->println($print);
+    }
+
+    /**
+     * 
+     * Print out with space
+     * @param string $print - puts out on the screen
+     * 
+     */
+    protected function print_sp(string $print): void
+    {
+        $this->kernel->IIO($this->me)->print($print . " ");
+    }
+
+    /**
+     * 
+     * Print out error
+     * @param string $print - puts out on the screen
+     * 
+     */
+    protected function print_err(string $print): void
+    {
+        $this->kernel->IIO($this->me)->std_err($print);
+    }
+
+    /**
+     * 
+     * Print out shorthand
+     * @param string $print - puts out on the screen
+     * 
+     */
+    protected function print(string $print): void
+    {
+        $this->kernel->IIO($this->me)->print($print);
+    }
+
+    /**
+     * 
+     * Child dispatcher
+     * @param array $args
+     * 
+     */
+    protected final function function_dispatcher($args = null) : void
+    {
+        if($args == null)
+            $this->main(array());
+        else
+            $this->main($args);
+    }
+
+    /**
+     * 
+     * Main function
+     * @param array $args - just pass through arguments
+     * 
+     */
+    protected function main(array $args): void
+    {
+    }
+}

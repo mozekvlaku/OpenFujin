@@ -1,0 +1,276 @@
+<?php
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace Fujin\Kernel\FjFs\Drivers;
+
+use Exception;
+use Fujin\Kernel\FjFs\Path;
+use Fujin\Kernel\Obj\Task;
+
+class DevFileDriver extends FileSystemDriver
+{
+
+    public static function read(Path $path, Task|null $scope_task = null)
+    {
+        $stdin = "";
+        if($scope_task != null)
+        {
+            $stdin = $scope_task->get_args();
+        }
+        $filename = $path->get_filename();
+        switch ($filename) {
+            case "stdout":
+                return "";
+            case "stdin":
+                return $stdin;
+            case "stderr":
+                return "";
+            case "zero":
+                return 0;
+            case "null":
+                return null;
+            case "javascript":
+                return null;
+            case "urandom":
+                return rand(0, 16474);
+            case "random":
+                return rand(0, 16474);
+            case "mem":
+                return bin2hex(var_export($_SESSION, true));
+        }
+    }
+
+    public static function list(Path $path) : array
+    {
+        $dirstore = array(
+            'DS_INFO' => array(
+                'IN_NAME' => 'FujinFS Directory Store',
+                'IN_CREATED' => '2022-08-25 09:21:38pm',
+                'IN_FJVER' => VER,
+            ),
+            'DS_FILES' => array(
+                0 => array(
+                    'FN' => 'stdout',
+                    'TM' => 1659572778,
+                    'MM' => 'text/plain',
+                    'OW' => 'root',                    
+                    'OG' => 'root',
+                    'OT' => array(
+                        array('u','rooters',array('r','w')),
+                        array('u','everyone',array('r')),
+                        array('g','fujinusr',array('r')),
+                    ),
+                ),
+                1 => array(
+                    'FN' => 'stdin',
+                    'TM' => 1659572778,
+                    'MM' => 'text/plain',
+                    'OW' => 'root',                    
+                    'OG' => 'root',
+                    'OT' => array(
+                        array('u', 'rooters', array('r', 'w')),
+                        array('u', 'everyone', array('r', 'w')),
+                        array('g', 'fujinusr', array('r', 'w')),
+                    ),
+                ),
+                2 => array(
+                    'FN' => 'stderr',
+                    'TM' => 1659572778,
+                    'MM' => 'text/plain',
+                    'OW' => 'root',                    
+                    'OG' => 'root',
+                    'OT' => array(
+                        array('u', 'rooters', array('r', 'w')),
+                        array('u', 'everyone', array('r', 'w')),
+                        array('g', 'fujinusr', array('r', 'w')),
+                    ),
+                ),
+                3 => array(
+                    'FN' => 'zero',
+                    'TM' => 1659572778,
+                    'MM' => 'text/plain',
+                    'OW' => 'root',                    
+                    'OG' => 'root',
+                    'OT' => array(
+                        array('u', 'rooters', array('r', 'w')),
+                        array('u', 'everyone', array('r', 'w')),
+                        array('g', 'fujinusr', array('r', 'w')),
+                    ),
+                ),
+                4 => array(
+                    'FN' => 'null',
+                    'TM' => 1659572778,
+                    'MM' => 'text/plain',
+                    'OW' => 'root',                    
+                    'OG' => 'root',
+                    'OT' => array(
+                        array('u', 'rooters', array('r', 'w')),
+                        array('u', 'everyone', array('r', 'w')),
+                        array('g', 'fujinusr', array('r', 'w')),
+                    ),
+                ),
+                5 => array(
+                    'FN' => 'random',
+                    'TM' => 1659572778,
+                    'MM' => 'text/plain',
+                    'OW' => 'root',                    
+                    'OG' => 'root',
+                    'OT' => array(
+                        array('u', 'rooters', array('r')),
+                        array('u', 'everyone', array('r')),
+                        array('g', 'fujinusr', array('r')),
+                    ),
+                ),
+                6 => array(
+                    'FN' => 'urandom',
+                    'TM' => 1659572778,
+                    'MM' => 'text/plain',
+                    'OW' => 'root',                    
+                    'OG' => 'root',
+                    'OT' => array(
+                        array('u', 'rooters', array('r')),
+                        array('u', 'everyone', array('r')),
+                        array('g', 'fujinusr', array('r')),
+                    ),
+                ),
+                7 => array(
+                    'FN' => 'mem',
+                    'TM' => 1659572778,
+                    'MM' => 'text/plain',
+                    'OW' => 'root',                    
+                    'OG' => 'root',
+                    'OT' => array(
+                        array('u', 'rooters', array('r','w'))
+                    ),
+                ),
+                8 => array(
+                    'FN' => 'javascript',
+                    'TM' => 1659572778,
+                    'MM' => 'text/plain',
+                    'OW' => 'root',                    
+                    'OG' => 'root',
+                    'OT' => array(
+                        array('u', 'rooters', array('r', 'w')),
+                        array('u', 'everyone', array('r')),
+                        array('g', 'fujinusr', array('r')),
+                    ),
+                )
+            ),
+            'DS_ICON' => array(
+                'IC_NAME' => 'folder',
+                'IC_NAMESPACE' => 'places',
+            ),
+            'DS_COMMENT' => 'In this folder, you can find all of Fujin devices',
+            'DS_ALTNAME' => array(
+                "cs_CZ" => 'Zařízení'
+            ),
+            'DS_ACCESS' => array(
+                'AS_OWNER' => 'root',
+                'AS_GROUP' => 'root',
+                'AS_OTHER' => array(
+                    0 => array(
+                        0 => 'u',
+                        1 => 'rooters',
+                        2 => array(
+                            0 => 'r',
+                            1 => 'w',
+                            2 => 'x',
+                            3 => 'r',
+                            4 => 'd',
+                        ),
+                    ),
+                    1 => array(
+                        0 => 'u',
+                        1 => 'everyone',
+                        2 => array(
+                            0 => 'r',
+                        ),
+                    ),
+                    2 => array(
+                        0 => 'g',
+                        1 => 'fujinusr',
+                        2 => array(
+                            0 => 'r',
+                        ),
+                    ),
+                ),
+            ),
+            'DS_CACHE' => array(
+                'CA_SIZE' => 0,
+                'CA_FILES_CHECKSUM' => 8,
+            ),
+        );
+        return $dirstore;
+    }
+
+    public static function write(Path $path, $contents, $user = USER)
+    {
+        $filename = $path->get_filename();
+        switch ($filename) {
+            case "stdout":
+                echo $contents;
+                return true;
+            case "stdin":
+                echo $contents;
+                return true;
+            case "stderr":
+                echo "Error:" . $contents;
+                return true;
+            case "zero":
+                return true;
+            case "null":
+                return true;
+            case "javascript":
+                $javascript = $contents;
+                $containerId = "fujinfilesys".rand(1000,9999);
+                $pid = 901;
+                $jsArray = $_SESSION['fjx_jsarray'];
+
+                $jsArray[$containerId] = base64_encode(base64_decode($jsArray[$containerId]) . "\n" . $javascript);
+
+                $_SESSION['fjx_jsarray'] = $jsArray;
+
+                if (!isset($_SESSION['fjx_jsgc'])) {
+                    $_SESSION['fjx_jsgc'] = array();
+                }
+
+                $garbageCollector = $_SESSION['fjx_jsgc'];
+
+                if (!isset($garbageCollector[$pid])) {
+                    $garbageCollector[$pid] = array();
+                }
+
+                array_push($garbageCollector[$pid], $containerId);
+
+                $_SESSION['fjx_jsgc'] = $garbageCollector;
+                return true;
+            case "urandom":
+                return true;
+            case "random":
+                return true;
+            case "mem":
+                throw new Exception("System Integrity Protection stopped " . USER . " from rewriting system memory.");
+                return false;
+        }
+        
+    }
+
+    public static function rm(Path $path, $user)
+    {
+        throw new Exception("System Integrity Protection stopped " . USER . " from deleting system files.");
+    }
+}
