@@ -1,7 +1,7 @@
 
 <h1 align="center">
   <br>
-  <img src="./docs/OpenFujinLogo.svg" alt="OpenFujin" width="500">
+  <img src="./docs/OpenFujinLogoWithBorder.svg" alt="OpenFujin" width="500">
   <br>
   OpenFujin
   <br>
