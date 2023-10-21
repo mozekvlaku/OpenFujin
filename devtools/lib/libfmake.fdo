@@ -76,7 +76,7 @@ class LibFmake extends FujinDynamicObject {
             switch($target->mode)
             {
                 case 'fsource':
-                $compiler = new LibFsourceCompiler($this->project_root);
+                $compiler = new LibFsourceCompiler($this->project_root, $this->project_name, $this->project_version);
                 break;
 
                 case 'pexin':

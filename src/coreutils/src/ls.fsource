@@ -1,0 +1,129 @@
+<?php
+//SH
+
+namespace Fujin\ConsoleApps;
+
+use Exception;
+use Fujin\Framework\Kernel\ConsoleApplication;
+
+class ls extends ConsoleApplication
+{
+    const APP_NAME          = "List";
+    const APP_ICON_GROUP    = "mimes";
+    const APP_ICON          = "text-x-php";
+    const APP_TYPE          = "cli";
+
+    const TAB               = "	";
+
+    private bool $show_hidden_unix      = false;
+    private bool $show_hidden_fujin     = false;
+    private bool $list_directories_only = false;
+    private bool $list_long             = false;
+    private bool $color                 = true;
+
+    protected function main(array $args): void
+    {
+        $this->ch("-a", function () {
+            $this->show_hidden_unix = true;
+        });
+        $this->ch("-A", function () {
+            $this->show_hidden_fujin = true;
+        });
+        $this->ch("-d", function () {
+            $this->list_directories_only = true;
+        });
+        $this->ch("-l", function () {
+            $this->list_long = true;
+        });
+        $path = $this->parse_path($args);
+        try {
+            $directory = $this->__fs()->list($path)->get_directory_contents();
+            foreach($directory as $entry)
+            {
+                $ext = "";
+                $tmp = explode(".",$entry["FN"]);
+                if(count($tmp) > 0)
+                {
+                    $ext = end($tmp);
+                }
+                $line = "";
+                if($this->list_long)
+                {
+
+                }
+                else
+                {
+                    if($entry["FN"][0] == "." && !$this->show_hidden_unix)
+                        continue;
+
+                    if($entry["MM"] == "directory")
+                        $line = "\e[36m" . $entry["FN"] . "[0m   ";
+
+                    if ($entry["MM"] == "application/zip")
+                        $line = "\e[31m" . $entry["FN"] . "[0m   ";
+
+                    if ($ext == "fujin")
+                        $line = "\e[46;30m" . $entry["FN"] . "[0m   ";
+
+                    if ($ext == "ko")
+                        $line = "\e[44;36m" . $entry["FN"] . "[0m   ";
+
+                    if ($ext == "kmod")
+                        $line = "\e[44;33m" . $entry["FN"] . "[0m   ";
+
+                    if ($ext == "kernel")
+                        $line = "\e[3;7m" . $entry["FN"] . "[0m   ";
+
+                    if ($ext == "appf" || $ext == "appfbundle")
+                        $line = "\e[33;1m" . $entry["FN"] . "[0m   ";
+
+                    if ($line == "")
+                        $line = $entry["FN"] . "   ";
+
+                    $this->print($line);
+                }
+            }
+            $this->print_ln("");
+        } catch (Exception $e) {
+            $this->print_err($e->getMessage());
+        }
+        $this->sys_exit(0);
+    }
+    private function parse_path(array $path): string
+    {
+        $path = $path["m"][0];
+        if($path == "ls" || $path == null)
+        {
+            $path = $this->kernel->IFileSystem($this->me)->pwd();
+        }
+        if ($path[0] == DIRECTORY_SEPARATOR) {
+            return $path;
+        }
+        if ($path[0] == ".") {
+            $local_path = substr($path, 1);
+            return $this->kernel->IFileSystem($this->me)->pwd() . $local_path;
+        }
+
+        return $path;
+    }
+    function colorify($clr)
+    {
+        $file = FUJIN_ROOT . $this->kernel->IFileSystem($this->me)->pwd() . "/" . $clr;
+        if (is_dir($file)) {
+            return ;
+        } else {
+            if (substr($_SESSION["fjfd_currdir"], -3) == "bin") {
+                return "\e[32m" . substr($clr, 0, count($clr) - 5) . "\e[0m";
+            } else {
+                return $clr;
+            }
+        }
+    }
+    private function format_bytes(int $size)
+    {
+        $base = log($size, 1024);
+        $suffixes = array('', 'KB', 'MB', 'GB', 'TB');
+        return round(pow(1024, $base - floor($base)), 2) . '' . $suffixes[floor($base)];
+    }
+}
+?>

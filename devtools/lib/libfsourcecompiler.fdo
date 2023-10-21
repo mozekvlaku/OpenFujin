@@ -23,12 +23,17 @@
 namespace Fujin\DevTools;
 
 class LibFsourceCompiler implements ICompiler {
-    private string $project_root = "";
-    private bool $is_binary      = false;
+    private string $project_root    = "";
+    private bool $is_binary         = false;
 
-    public function __construct(string $project_root)
+    private string $project_name    = "";
+    private string $project_version = "";
+
+    public function __construct(string $project_root, string $project_name, string $project_version)
     {
         $this->project_root = $project_root;
+        $this->project_name = $project_name;
+        $this->project_version = $project_version;
     }
 
     public function prepare_sources(array $sources): array {
@@ -59,7 +64,7 @@ class LibFsourceCompiler implements ICompiler {
         return implode("", $sources);
     }
     public function save_sources(string $sources, string $destination, string $type): bool {
-        $final_destination = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $this->project_root . DIRECTORY_SEPARATOR . 'dist'  . $destination);
+        $final_destination = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $this->project_root . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . $this->project_name . '@' . $this->project_version . DIRECTORY_SEPARATOR . $destination);
         if(!is_dir(dirname($final_destination)))
             mkdir(dirname($final_destination), 0777, true);
 

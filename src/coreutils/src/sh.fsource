@@ -1,0 +1,210 @@
+<?php
+//SH
+/**
+ * Fujin Version 3
+ * 
+ * basic shell
+ */
+namespace Fujin\ConsoleApps;
+
+use Exception;
+use Fujin\Framework\Helper\Kernel\Smilecat;
+use Fujin\Framework\Kernel\ConsoleApplication;
+
+class Sh extends ConsoleApplication
+{
+    const UNKNOWN_COMMAND = ": command not found.";
+    const APP_NAME          = "Shell";
+    const APP_ICON_GROUP    = "mimes";
+    const APP_ICON          = "text-x-php";
+    const APP_TYPE          = "cli";
+
+    protected function main(array $args): void
+    {
+        $this->prompt_update();
+        $this->fn("init", function () {
+            $this->print_ln("Last login: " . date(DATE_RFC2822) . " from " . $_SERVER['REMOTE_ADDR'] . " on /dev/" . $_SESSION["fjx_currentDisplay"] . "\n");
+            try {
+                $this->print_ln($this->kernel->IFileSystem($this->me)->read(DIRECTORY_SEPARATOR . "etc" . DIRECTORY_SEPARATOR . "motd"));
+            }
+            catch (Exception $e)
+            {
+                $this->print_err($e);
+            }
+            
+        });
+        $this->fn("prompt", function () {
+            $this->prompt_update();
+        });
+        $this->ms_exist(function () {
+            $args = explode(" ", $this->args);
+            $this->parse_builtins($args);
+        });
+        //$this->prompt_update();
+    }
+
+    private function parse_builtins(array $args) : void
+    {
+        $command = $args[0];
+        array_shift($args);
+        $data = implode(" ", $args);
+        $parent = $this->me->get_parent();
+        switch ($command) {
+            case "exit":
+                if($parent != 1)
+                {
+                    $this->sys_exit(130);
+                    $this->kernel->sci_invoke_process($parent, "prompt(1)");
+                }
+                break;
+            case "^C":
+                if ($parent != 1) {
+                    $this->sys_exit(130);
+                    $this->kernel->sci_invoke_process($parent, "prompt(1)");
+                
+                }
+                break;
+            case "cd":
+                $this->kernel->IFileSystem($this->me)->chdir($data);
+                $this->prompt_update();
+                break;
+
+            case "cl":
+                $this->kernel->IFileSystem($this->me)->chdir($data);
+                $this->prompt_update();
+                $this->execute_exe("ls","");
+                break;
+        
+            case "clear":
+                $this->print_ln("[2J");
+                break;
+            case "cls":
+
+                $this->print_ln("[2J");
+                break;
+            case "granger":
+                //session_destroy();
+                $this->kernel->IJavaScriptVM($this->me)->add_script("Broker", "logout();");
+                $smilecat = new Smilecat($this);
+                $smilecat->call_async("flush_session()");
+                $this->print_ln("Your session has been flushed, horror things may happen");
+                break;
+            case "echo":
+                $this->print_ln($data);
+                break;
+            case 'logout':
+                $_SESSION["FJACC_SETTINGS"] = null;
+                $this->sys_exit(1);
+                $this->kernel->sci_invoke_process(1);
+                break;
+            default:
+                if(!$this->parse_pipe($command))
+                {
+                    $this->execute_exe($command, $data);
+                }
+                break;
+        }
+    }
+
+    private function execute_exe(string $command, string $data = "") : void
+    {
+        $path = $this->parse_command($command);
+        try {
+            $new_process = $this->kernel->sci_start_process($path, $this->me->__task_pid, $this->me->get_owner(), $this->me->get_display());
+            $this->kernel->sci_send_message($new_process, $data);
+            $this->kernel->sci_invoke_process($new_process);
+        } catch (Exception $e) {
+            $this->print_err($e->getMessage());
+        }
+    }
+    
+    private function parse_pipe($command) : bool
+    {
+        if (strpos($command, '|') !== false) {
+            $pipe = true;
+            $cmdarray = explode(" | ", $command);
+            if ($_SESSION["fjx_sh_pipecurr"] == "") {
+                $_SESSION["fjx_sh_pipecurr"] = 0;
+            }
+            $_SESSION["fjx_sh_pipemax"] = count($cmdarray);
+            $_SESSION["fjx_sh_pipestat"] = $pipe;
+            $_SESSION["fjx_sh_pipearray"] = $cmdarray;
+            for ($i = 0; $i < $_SESSION["fjx_sh_pipemax"]; $i++) {
+
+                $cmd = $cmdarray[$_SESSION["fjx_sh_pipecurr"]];
+                $_SESSION["fjx_sh_pipecurra"] = $_SESSION["fjx_sh_pipecurr"];
+
+                if ($_SESSION["fjx_sh_pipecurr"] == 0) {
+                    $this->parse_command($cmd);
+                    $_SESSION["fjx_sh_pipecurr"] = 1;
+                } else {
+                    if ($_SESSION["fjx_sh_pipecurr"] >= ($_SESSION["fjx_sh_pipemax"] - 1)) {
+                        $_SESSION["fjx_sh_pipestat"] = false;
+                        $_SESSION["fjx_sh_pipecurr"] = 0;
+                    } else {
+                        $_SESSION["fjx_sh_pipecurr"] += 1;
+                    }
+                    $this->parse_command($cmd,$_SESSION["fjx_sh_pipeinputs"][$_SESSION["fjx_sh_pipecurra"]]);
+                }
+            }
+            return true;
+        } else {
+            $pipe = false;
+            $_SESSION["fjx_sh_pipestat"] = $pipe;
+            return false;
+        }
+    }
+
+    private function prompt_update() : void
+    {
+        $wd = $this->__fs()->pwd();
+        if ($this->me->get_task_level() == 0) {
+            $this->set_prompt("\e[32;1m" . USER . "@" . $this->get_name("https://" . $_SERVER['SERVER_NAME']) . "\e[39m:\e[36m" . $wd . "\e[39m\e[0m$");
+        } else {
+            $this->set_prompt("\e[32;1mroot@" . $this->get_name("https://" . $_SERVER['SERVER_NAME']) . "\e[39m:\e[36m" . $wd . "\e[39m\e[0m#");
+        }
+    }
+
+    private function get_name(string $url) : string|bool
+    {
+        $pieces = parse_url($url);
+        $domain = isset($pieces['host']) ? $pieces['host'] : '';
+        if (preg_match('/(?P<domain>[a-z0-9][a-z0-9\-]{1,63}\.[a-z\.]{2,6})$/i', $domain, $regs)) {
+            return explode('.', $regs['domain'])[0];
+        }
+        return false;
+    }
+
+    private function parse_command(string $executable) : string
+    {
+        /**
+         * Trying to instantiate task with full path
+         * eg. /bin/uname
+         */
+        if ($executable[0] == DIRECTORY_SEPARATOR)
+        {
+            return $executable;
+        }
+        /**
+         * Trying to instantiate task with relative path
+         * eg. ./uname
+         */
+        if ($executable[0] == ".") {
+            $local_path = substr($executable, 1);
+            return $this->kernel->IFileSystem($this->me)->pwd() . $local_path;
+        }
+        /**
+         * Trying to instantiate task from environment
+         * eg. uname
+         */
+        $environment_path = $_SESSION["fjx_envpath"];
+        $path = "";
+        for ($i = 0; $i < count($environment_path); $i++) {
+            $files = scandir(FUJIN_ROOT . $environment_path[$i]);
+            if (in_array($executable, $files)) {
+                $path = $environment_path[$i]. DIRECTORY_SEPARATOR . $executable;
+            }
+        }
+        return rtrim($path, DIRECTORY_SEPARATOR);
+    }
+}

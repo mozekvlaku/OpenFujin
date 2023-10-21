@@ -1,0 +1,386 @@
+<?php
+
+/**
+ * [Fujin Executable]
+ * 
+ * Vespotok Fujin Authentication
+ * 
+ * Copyright (c) 2022 Vespotok veDev
+ * 
+ * @package     CoreApps
+ * @subpackage  Fujin Auth Getty
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+use Fujin\Framework\Helper\FileSystem\ConfigManager;
+use Fujin\Framework\Kernel\ConsoleApplication;
+
+class Auth extends ConsoleApplication
+{
+    private ConfigManager $configman;
+    private ConfigManager $localdomain;
+    private string $mode;
+    const MULTIPLE_SESSIONS = false;
+    const DOMAIN_SERVER     = "http://[2a02:768:ef2e:19d2:800c:e30d:fb6e:8e89]:8080/api/v1/";
+
+    protected function main(array $args): void
+    {
+        $this->configman = new ConfigManager("/etc/auth/", "auth");
+        $this->localdomain = new ConfigManager("/etc/", "localdomain");
+        $this->mode = $this->configman->get_information("mode");
+
+        $login_state = $this->__mem()->mem_r_get("loginstate");
+        switch($login_state)
+        {
+            case false:
+            // Starting step
+            $this->__mem()->mem_r_add("loginstate", 1);
+            $this->set_prompt($this->get_name("https://" . $_SERVER['SERVER_NAME'])  . " login: ");
+            break;
+            case 1:
+            // Getting username
+            
+        }
+        if (!$sudo_state) {
+            // First step - init sudo
+            $this->__mem()->mem_r_add("loginstate", 1);
+            $command = $args["m"][0];
+            $this->__mem()->mem_r_add("loginstate", $command);
+            $this->set_prompt("[sudo\\] password for " . USER . ":[8m");
+        } else {
+            // Second step - check password
+            $password = $args["m"][0];
+            if (password_verify($password, $_SESSION["fjx_shadow"])) {
+                $command = $this->__mem()->mem_r_get("sudodata");
+                $parent =  $this->me->get_parent();
+                $this->sys_exit(0);
+                $this->__mem()->mem_r_add("sudostate", false);
+                $fork = $this->kernel->sci_start_process($this->parse_command($command), $parent, "root", $_SESSION["fjx_currentDisplay"]);
+                $this->kernel->sci_invoke_process($fork, "");
+            } else {
+                $this->print_err("This is not the password you dumbass" . $_SESSION["fjx_shadow"]);
+            }
+        }
+    }
+
+    private function get_name(string $url): string|bool
+    {
+        $pieces = parse_url($url);
+        $domain = isset($pieces['host']) ? $pieces['host'] : '';
+        if (preg_match('/(?P<domain>[a-z0-9][a-z0-9\-]{1,63}\.[a-z\.]{2,6})$/i', $domain, $regs)) {
+            return explode('.', $regs['domain'])[0];
+        }
+        return false;
+    }
+
+}
+
+/*
+
+
+
+
+
+
+
+
+
+
+<?php
+
+namespace Fujin\Bin;
+
+use Fujin\lib\fj_codec;
+use Fujin\lib\fj_connect;
+use Fujin\Kernel\Fujin;
+use Fujin\Kernel\IO;
+use Fujin\Kernel\Obj\Executable;
+
+class auth extends Executable
+{
+    private $username;
+    private $password;
+    private $name;
+    private $surname;
+    private $profile;
+    private $acl;
+    private $fjid;
+    private $pid;
+
+    private $codec;
+    private $dbconn;
+    private $greeterconf;
+    private $dashconf;
+
+    private IO $io;
+
+    protected function construct_invoke(): void
+    {
+        $this->codec = new fj_codec(true);
+        $this->dbconn = new fj_connect();
+        $this->greeterconf = json_decode(file_get_contents($_SESSION["fjx_root"] . "/etc/greeter.fjconf"));
+        $this->dashconf = json_decode(file_get_contents($_SESSION["fjx_root"] . "/etc/dash.fjconf"));
+        if (!isset($_SESSION["fjx_loginstate"])) {
+            $_SESSION["fjx_loginstate"] = false;
+            $_SESSION["fjx_passwordstate"] = false;
+        }
+        $this->pid = $this->me->__task_pid;
+        $this->io = Fujin::IIO($this->me);
+      
+    }
+    function getName($url)
+    {
+        $pieces = parse_url($url);
+        $domain = isset($pieces['host']) ? $pieces['host'] : '';
+        if (preg_match('/(?P<domain>[a-z0-9][a-z0-9\-]{1,63}\.[a-z\.]{2,6})$/i', $domain, $regs)) {
+            return explode('.', $regs['domain'])[0];
+        }
+        return false;
+    }
+    public function handle($args) : void
+    {
+        $this->endpoint->javascript("auth", '
+        var desktop = "";
+
+alignlogin();
+        function tryLogin() {
+             fujin_loading();
+        $(".loginshake").removeClass("animate__animated animate__shakeX animate__fadeInUp");
+        var username = $("#u").val();
+        var password = $("#p").val();
+        
+        $.ajax({
+            type: "POST",
+            url: "' . $_SESSION["fjx_path"] . '/api/helpers/login.php",
+            data: {
+                username: username,
+                password: password,
+                desktop: desktop
+            },
+            success: function(result) {
+                console.log(result);
+                if (result == "true") {
+
+                    loginOk();
+                } else if (result == "noob") {
+
+                    oobe();
+                } else {
+                    systemBeep();
+                    $(".loginshake").addClass("animate__animated animate__shakeX");
+                }
+            },
+            error: function(xhr, status, error) {
+
+                
+            }
+        });
+    }
+
+    document.onkeydown = checkKey;
+
+    function checkKey(e) {
+        e = e || window.event;
+        switch (e.keyCode) {
+            case 13:
+                if(!console_active)
+                {
+                    tryLogin();
+                }
+                break;
+           
+        }
+    }
+    function selectDesktopBin(bin, icon)
+    {
+        desktop = bin;
+        $("#session_selector").addClass(icon);
+    }
+setScreenMode("", atob(basedash) );
+    ', $this->pid);
+
+        if (($args == "checkLogin" && isset($_SESSION["FJACC_SETTINGS"]) && ($_SESSION["FJACC_SETTINGS"] != null))) {
+            $usr_sh = $_SESSION["FJACC_SETTINGS"]["SH"];
+
+            $usr_gui = $_SESSION["FJACC_SETTINGS"]["GUI"];
+            $_SESSION["fjx_passwordstate"] = false;
+            $_SESSION["fjx_loginstate"] = false;
+            $this->io->println();
+            $this->endpoint->tm->killAll("auth");
+            $this->endpoint->gc_javascript($this->pid);
+            $te0 = $this->endpoint->tm->taskExists("sh", "stdout");
+            if ($te0 == false) {
+                $this->endpoint->tm->startTask($usr_sh, "", false, true, "stdout", 1);
+            } else {
+                $_SESSION["fjx_currentTask"]["stdout"] = $te0;
+            }
+
+            $te1 = $this->endpoint->tm->taskExists("sh", "tty0");
+            if ($te1 == false) {
+                $this->endpoint->tm->startTask($usr_sh, "loaad", false, true, "tty0", 1);
+            } else {
+                $_SESSION["fjx_currentTask"]["tty0"] = $te1;
+            }
+
+            $te2 = $this->endpoint->tm->taskExists("sh", "tty1");
+            if ($te2 == false) {
+                $this->endpoint->tm->startTask($usr_sh, "loaad", false, true, "tty1", 1);
+            } else {
+                $_SESSION["fjx_currentTask"]["tty1"] = $te2;
+            }
+
+            $te3 = $this->endpoint->tm->taskExists("sh", "tty2");
+            if ($te3 == false) {
+                $this->endpoint->tm->startTask($usr_sh, "loaad", false, true, "tty2", 1);
+            } else {
+                $_SESSION["fjx_currentTask"]["tty2"] = $te3;
+            }
+
+            $te4 = $this->endpoint->tm->taskExists("sh", "tty3");
+            if ($te4 == false) {
+                $this->endpoint->tm->startTask($usr_sh, "loaad", false, true, "tty3", 1);
+            } else {
+                $_SESSION["fjx_currentTask"]["tty3"] = $te4;
+            }
+            $graphics_bin_arr = explode("/", $_SESSION["FJACC_SETTINGS"]["GUI"]);
+            $graphics_bin = $graphics_bin_arr[count($graphics_bin_arr)];
+            $te5 = $this->endpoint->tm->taskExists($graphics_bin, "jsd0");
+            if ($te5 == false) {
+                $this->endpoint->tm->startTask($usr_gui, "", false, true, "jsd0", 1);
+            } else {
+                $_SESSION["fjx_currentTask"]["jsd0"] = $te5;
+            }
+
+            Fujin::c()->sci_invoke_process($this->me);
+        } else {
+            if (($this->endpoint->currentTask->getArgs() == "wallpaper" || $this->endpoint->currentTask->getArgs() == "ui") || ($this->endpoint->currentTask->getArgs() == "wallpaper_postlogin" || $this->endpoint->currentTask->getArgs() == "ui_postlogin"|| $this->endpoint->currentTask->getArgs() == "ui_mobile")) {
+                if ($this->endpoint->currentTask->getArgs() == "ui"|| $this->endpoint->currentTask->getArgs() =="ui_postlogin" || $this->endpoint->currentTask->getArgs() == "ui_mobile") {
+                    $this->prepareLoginBox();
+                }
+                if ($this->endpoint->currentTask->getArgs() == "wallpaper" || $this->endpoint->currentTask->getArgs() == "wallpaper_postlogin") {
+                    $this->prepareWallpaper();
+                }
+            } else {
+                if (isset($_SESSION["FJACC_SETTINGS"]) && $_SESSION["FJACC_SETTINGS"]["LOGGED_IN"]) {
+                    $usr_gui = $_SESSION["FJACC_SETTINGS"]["GUI"];
+                    $usr_sh = $_SESSION["FJACC_SETTINGS"]["SH"];
+                    $_SESSION["fjx_passwordstate"] = false;
+                    $_SESSION["fjx_loginstate"] = false;
+                  $this->io->println();
+                    $this->endpoint->tm->killCurrent();
+                    $this->endpoint->gc_javascript($this->pid);
+                    if ($_SESSION["fjx_currentDisplay"] == "jsd0") {
+                    } else {
+                        $this->io->println("Last login: " . date(DATE_RFC2822) . " from " . $_SERVER['REMOTE_ADDR'] . " on /dev/" . $_SESSION["fjx_currentDisplay"] . "\n");
+                    }
+
+                    $this->endpoint->tm->startTask($usr_sh, "", false, true, $_SESSION["fjx_currentDisplay"], 1);
+                    Fujin::c()->sci_invoke_process($this->me);
+                } else {
+                    if ($_SESSION["fjx_loginstate"] == false) {
+                        $conf  = $_SESSION["fjx_ver"];
+                        if ($_SESSION["fjx_currentDisplay"] == "jsd0") {
+                            if ($this->endpoint->currentTask->getArgs() == "ui") {
+                                $this->endpoint->stdOu("Vespotok Fujsin " . $conf->ver_major . "." . $conf->ver_minor . "\n");
+                            }
+                            if ($this->endpoint->currentTask->getArgs() == "wallpaper") {
+                                $this->prepareWallpaper();
+                            }
+                        } else {
+                            $this->io->println(file_get_contents($_SESSION["fjx_root"]."/etc/issue") . "\n");
+                        }
+
+                        $_SESSION["fjx_prompt"] = $this->getName("https://" . $_SERVER['SERVER_NAME']) . " login:";
+                        $_SESSION["fjx_loginstate"] = true;
+                    } else {
+                        if ($_SESSION["fjx_passwordstate"] == false && $this->endpoint->currentTask->getArgs() != "") {
+                            $_SESSION["fjx_login"] = $this->endpoint->currentTask->getArgs();
+                            $_SESSION["fjx_prompt"] = $_SESSION["fjx_login"] . "'s password:[8m";
+                            $_SESSION["fjx_passwordstate"] = true;
+                        } else {
+                            $username =  $_SESSION["fjx_login"];
+                            $password = $this->endpoint->currentTask->getArgs();
+                            $session = $this->createSession($username, $password);
+                            if ($session != false) {
+                                $_SESSION["FJACC_SETTINGS"]["LOGGED_IN"] = true;
+                                $_SESSION["FJACC_SETTINGS"] = $session;
+                                $usr_sh = $_SESSION["FJACC_SETTINGS"]["SH"];
+
+                                $usr_gui = $_SESSION["FJACC_SETTINGS"]["GUI"];
+                                $_SESSION["fjx_passwordstate"] = false;
+                                $_SESSION["fjx_loginstate"] = false;
+                                $this->io->println("\n[0m");
+                                $this->endpoint->tm->killAll("auth");
+
+                                $this->endpoint->gc_javascript($this->pid);
+
+                                Fujin::c()->sci_invoke_process($this->me);
+                            } else {
+                                
+                                    $this->io->println("[0mWrong user credentials");
+                                    $_SESSION["fjx_passwordstate"] = false;
+                                    $_SESSION["fjx_loginstate"] = false;
+                                
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public function createSession($username, $password,$desktop = "")
+    {
+
+        $this->password = $password;
+        $this->username = $username;
+        $cod = $this->codec;
+        $db = $this->dbconn;
+        $encodedpassword = $cod->encode($password);
+
+     
+
+        $query = "SELECT * FROM `fj_acc` a JOIN fj_acc_base b on b.FJID = a.FJID WHERE USERNAME = '" . $username . "'";
+
+        $data = $db->fjdata($query, true);
+        if ($data[0]["PASSWORD"] == $encodedpassword) {
+            $query = "INSERT INTO `fj_telemetry_login`(`USERNAME`, `SUCCESSFUL`) VALUES ('" . $username . "','1')";
+            $db->fjdata($query, false);
+            
+            if ($desktop != "") {
+                $query = "UPDATE `fj_acc` SET GUI='". $desktop."' WHERE USERNAME = '" . $username . "'";
+                $db->fjdata($query, false);
+                $data[0]["GUI"] = $desktop;
+            }
+            
+            $perms = "";
+            
+            $perms = rtrim($perms, ',');
+            if ($data[0]["PROFILE_PIC"] == "") {
+                $data[0]["PROFILE_PIC"] = "https://www.shareicon.net/data/512x512/2015/10/17/657746_users_512x512.png";
+            }
+
+            
+
+            $_SESSION["fjx_home_directory_root"] = $_SESSION["fjx_root"] . "/home/". $username;
+            $_SESSION["fjx_home_directory_path"] = $_SESSION["fjx_path"] . "/home/" . $username;
+            $_SESSION["fjx_current_user_groups"] = explode(",",$data[0]["USERGROUPS"]);
+            $_SESSION["fjx_current_user_username"] = $data[0]["USERNAME"];
+            $_SESSION["fjx_current_user_fjid"] = $data[0]["FJID"];
+            $_SESSION["fjfd_currdir"] = "/home/" . $username;
+            if(!is_dir($_SESSION["fjx_root"]. $_SESSION["fjfd_currdir"]))
+            {
+                mkdir($_SESSION["fjx_root"] . $_SESSION["fjfd_currdir"]);
+            }
+            $data[0]["PERMISSIONS"] = $perms;
+            return $data[0];
+        } else {
+
+            $query = "INSERT INTO `fj_telemetry_login`(`USERNAME`, `SUCCESSFUL`) VALUES ('" . $username . "','0')";
+            $db->fjdata($query, false);
+            return false;
+        }
+    }
+   
+}
+*/

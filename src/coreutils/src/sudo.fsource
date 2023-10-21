@@ -1,0 +1,75 @@
+<?php
+//SH
+/**
+ * Fujin Version 3
+ * 
+ * sudo command
+ */
+
+namespace Fujin\ConsoleApps;
+
+use Exception;
+use Fujin\Framework\Kernel\ConsoleApplication;
+
+class SuDo extends ConsoleApplication
+{
+    const APP_NAME          = "Superuser Do";
+    const APP_ICON_GROUP    = "mimes";
+    const APP_ICON          = "text-x-php";
+    const APP_TYPE          = "cli";
+    protected function main(array $args): void
+    {
+        $sudo_state = $this->__mem()->mem_r_get("sudostate");
+        if (!$sudo_state) {
+            // First step - init sudo
+            $this->__mem()->mem_r_add("sudostate", 1);
+            $command = $args["m"][0];
+            $this->__mem()->mem_r_add("sudodata", $command);
+            $this->set_prompt("[sudo\\] password for " . USER . ":[8m");
+        } else {
+            // Second step - check password
+            $password = $args["m"][0];
+            if (password_verify($password, $_SESSION["fjx_shadow"])) {
+                $command = $this->__mem()->mem_r_get("sudodata");
+                $parent =  $this->me->get_parent();
+                $this->sys_exit(0);
+                $this->__mem()->mem_r_add("sudostate", false);
+                $fork = $this->kernel->sci_start_process($this->parse_command($command), $parent, "root", $_SESSION["fjx_currentDisplay"]);
+                $this->kernel->sci_invoke_process($fork, "");
+            } else {
+                $this->print_err("This is not the password you dumbass" . $_SESSION["fjx_shadow"]);
+            }
+        }
+    }
+    private function parse_command(string $executable): string
+    {
+        /**
+         * Trying to instantiate task with full path
+         * eg. /bin/uname
+         */
+        if ($executable[0] == DIRECTORY_SEPARATOR) {
+            return $executable;
+        }
+        /**
+         * Trying to instantiate task with relative path
+         * eg. ./uname
+         */
+        if ($executable[0] == ".") {
+            $local_path = substr($executable, 1);
+            return $this->kernel->IFileSystem($this->me)->pwd() . $local_path;
+        }
+        /**
+         * Trying to instantiate task from environment
+         * eg. uname
+         */
+        $environment_path = $_SESSION["fjx_envpath"];
+        $path = "";
+        for ($i = 0; $i < count($environment_path); $i++) {
+            $files = scandir(FUJIN_ROOT . $environment_path[$i]);
+            if (in_array($executable, $files)) {
+                $path = $environment_path[$i] . DIRECTORY_SEPARATOR . $executable;
+            }
+        }
+        return rtrim($path, DIRECTORY_SEPARATOR);
+    }
+}
