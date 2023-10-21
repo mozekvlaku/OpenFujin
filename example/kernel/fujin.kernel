@@ -3,14 +3,14 @@
 /**
  * Copyright 2023 Ing. Tomas Kracik (Vespotok)
  * 
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the 'License');
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  * 
  *     http://www.apache.org/licenses/LICENSE-2.0
  * 
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an 'AS IS' BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -60,7 +60,7 @@ class Fujin
     {
         // Assign basic information
         $this->bootstrap();
-        header("fujin-version: " . VER);
+        header('fujin-version: ' . VER);
 
         // Create autoloader
         $this->modlib();
@@ -100,7 +100,7 @@ class Fujin
 
     private function modlib(): void
     {
-        $configuration = json_decode(file_get_contents($_SESSION["fjx_root"] . "/etc/system.fjconf"))->modlib;
+        $configuration = json_decode(file_get_contents(FUJIN_ROOT . '/etc/system.fjconf'))->modlib;
         $this->conf = (array) $configuration;
         spl_autoload_register(function ($class) {
             foreach ($this->conf as $item) {
@@ -108,7 +108,7 @@ class Fujin
                 $path = $item->path;
                 $exts = $item->exts;
                 if (strpos($class, $namespace) === 0) {
-                    $full_path = $_SESSION["fjx_root"] . $path . str_replace('\\', '/', str_replace($namespace, "", $class));
+                    $full_path = FUJIN_ROOT . $path . str_replace('\\', '/', str_replace($namespace, '', $class));
                     foreach ($exts as $ext) {
                         $file = strtolower($full_path . $ext);
                         if (file_exists($file)) {
@@ -130,9 +130,9 @@ class Fujin
      * @param string $bin_path - path to an executable.
      * @return int returns process id.
      */
-    public function sci_start_process(string $bin_path, Task|int $parent, string $owner = USER, string $display = "stdout"): int
+    public function sci_start_process(string $bin_path, Task|int $parent, string $owner = USER, string $display = 'stdout'): int
     {
-        $args = "";
+        $args = '';
         $command_arr = explode(' ', $bin_path);
         if (count($command_arr) > 1) {
             $args = $command_arr[1];
@@ -140,7 +140,7 @@ class Fujin
 
         $exec_path = FUJIN_ROOT . $bin_path;
         if (!is_file($exec_path)) {
-            throw new Exception("This executable does not exist!");
+            throw new Exception('This executable does not exist!');
         }
 
         $parent_task = $this->sci_get_task_pid($parent);
@@ -209,7 +209,8 @@ class Fujin
             return $cp;
         }
         if ($cp === 0) {
-            return null;
+            // Go back to sysdaemon
+            $cp = 1;
         }
         return $this->ko_scheduler->get_task($cp);
     }
@@ -258,7 +259,7 @@ class Fujin
     public function sci_set_task(int|Task $cp, string $display): void
     {
         $task = $this->sci_get_task($cp);
-        $_SESSION["fjx_currentTask"][$display] = $task->__task_pid;
+        $_SESSION['fjx_currentTask'][$display] = $task->__task_pid;
     }
 
     /**
@@ -363,40 +364,43 @@ class Fujin
         }
 
         $root = dirname(__DIR__);
-        $path = dirname((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]");
+        $path = dirname((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]');
 
-        if (!isset($_SESSION["fjx_booted"])) {
-            $_SESSION["fjx_ver"] = json_decode(file_get_contents($root . "/etc/ver.fjconf"));
-            $_SESSION["fjx_envpath"] = json_decode(file_get_contents($root . "/etc/environment.fjconf"))->path;
-            $_SESSION["fjx_auth"] = json_decode(file_get_contents($root . "/etc/auth.fjconf"));
-            $_SESSION["fjx_booted"] = true;
+        if (!isset($_SESSION['fjx_booted'])) {
+            $_SESSION['fjx_ver'] = json_decode(file_get_contents($root . '/etc/ver.fjconf'));
+            $_SESSION['fjx_envpath'] = json_decode(file_get_contents($root . '/etc/environment.fjconf'))->path;
+            $_SESSION['fjx_booted'] = true;
         }
 
-        $conf = $_SESSION["fjx_ver"];
+        $conf = $_SESSION['fjx_ver'];
 
-        define("FUJIN_ROOT", $root);
-        define("FUJIN_PATH", $path);
+        define('FUJIN_ROOT', $root);
+        define('FUJIN_PATH', $path);
 
-        $language = "cs_CZ";
+        $language = 'cs_CZ';
 
-        if (isset($_SESSION["FJACC_SETTINGS"]["USERNAME"])) {
-            define("HOME", "/home/" . $_SESSION["FJACC_SETTINGS"]["USERNAME"]);
-            if (is_file(FUJIN_ROOT . HOME . "/etc/dash.fjconf")) {
-                $language = json_decode(file_get_contents(FUJIN_ROOT . HOME . "/etc/dash.fjconf"))->lang;
+        if (isset($_SESSION['FJACC_SETTINGS']['USERNAME'])) {
+            define('HOME', '/home/' . $_SESSION['FJACC_SETTINGS']['USERNAME']);
+            if (is_file(FUJIN_ROOT . HOME . '/etc/dash.fjconf')) {
+                $language = json_decode(file_get_contents(FUJIN_ROOT . HOME . '/etc/dash.fjconf'))->lang;
             }
-            define("USER", $_SESSION["FJACC_SETTINGS"]["USERNAME"]);
-            define("FULLNAME", $_SESSION["FJACC_SETTINGS"]["NAME"] . " " . $_SESSION["FJACC_SETTINGS"]["SURNAME"]);
-            define("FIRSTNAME", $_SESSION["FJACC_SETTINGS"]["NAME"]);
+            define('USER', $_SESSION['FJACC_SETTINGS']['USERNAME']);
+            define('FULLNAME', $_SESSION['FJACC_SETTINGS']['NAME'] . ' ' . $_SESSION['FJACC_SETTINGS']['SURNAME']);
+            define('FIRSTNAME', $_SESSION['FJACC_SETTINGS']['NAME']);
         } else {
-            define("HOME", "/home/guest");
-            define("USER", "guest");
-            define("FULLNAME", "Guest");
-            define("FIRSTNAME", "Guest");
+            define('HOME', '/home/guest');
+            define('USER', 'guest');
+            define('FULLNAME', 'Guest');
+            define('FIRSTNAME', 'Guest');
         }
 
-        define("LANGUAGE", $language);
-        define("WORKING_DIR", $_SESSION["fjfd_currdir"]);
-        define("VER", $conf->uname . " " . $conf->ver_major . "." . $conf->ver_minor . " " . $conf->ver_codename);
-        define("CORE_VERSION", $conf->ver_major . "." . $conf->ver_minor);
+        define('LANGUAGE', $language);
+        define('VER', $conf->uname . ' ' . $conf->ver_major . '.' . $conf->ver_minor . ' ' . $conf->ver_codename);
+        define('CORE_VERSION', $conf->ver_major . '.' . $conf->ver_minor);
+
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // On Windows, these constants have to be set manually
+            define('SIGTERM', 15);
+        }
     }
 }

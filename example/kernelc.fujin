@@ -37,7 +37,7 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-include __DIR__ . "/nukernel/fujin.kernel";
+include __DIR__ . "/kernel/fujin.kernel";
 $_SESSION['fjx_error_reporting'] = "default";
 use Fujin\Kernel\Fujin;
 //ini_set('display_errors', 1); ini_set('display_startup_errors', 1); error_reporting(E_ALL);

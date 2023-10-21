@@ -164,13 +164,12 @@ class IO extends KernelObject
     {
         $variables = array(
             "HOME" => HOME,
-            "PWD" => WORKING_DIR,
             "USER" => USER,
             "DATE" => date("l jS \of F Y h:i:s A"),
             "USERNAME" => FULLNAME,
             "USERFIRSTNAME" => FIRSTNAME,
             "VER" => VER,
-            "PATH" => implode(",", json_decode(file_get_contents($_SESSION["fjx_root"] . "/etc/environment.fjconf"))->path)
+            "PATH" => implode(",", json_decode(file_get_contents(FUJIN_ROOT . "/etc/environment.fjconf"))->path)
         );
 
         foreach ($variables as $key => $val) {

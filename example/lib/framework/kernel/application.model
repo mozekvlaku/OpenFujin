@@ -381,9 +381,10 @@ class Application extends Executable
      */
     public function set_icon_icnmaster(string $namespace, string $icon_name): void
     {
-        $iconmaster = new \Fujin\Framework\Helper\Customization\icnmaster();
-        $this->icon = $iconmaster->getIcon($namespace, $icon_name);
-        $this->update_title();
+        // TODO: make this work again when gui available
+        //$iconmaster = new \Fujin\Framework\Helper\Customization\icnmaster();
+        //$this->icon = $iconmaster->getIcon($namespace, $icon_name);
+        //$this->update_title();
     }
 
     /**

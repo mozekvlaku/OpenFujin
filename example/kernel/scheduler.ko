@@ -131,9 +131,11 @@ class Scheduler extends KernelObject
             $this->register_task($kernel);
         }
 
-        if (!array_key_exists($this->current_task, $this->tasks)) {
+        if (!isset($this->current_task))
             $this->current_task = 1;
-        }
+
+        if (!array_key_exists($this->current_task, $this->tasks))
+            $this->current_task = 1;
     }
 
     /**
@@ -176,10 +178,8 @@ class Scheduler extends KernelObject
         $exec_nssp = $this->extract_namespace($exec_path);
         $exec_clsn = str_replace(' ', '', $exec_nssp . '\ ' . $exec_name);
         include($exec_path);
-        $exec_clvm = $exec_clsn . $task->get_display() . rand(1000, 9999);
-        class_alias($exec_clsn, $exec_clvm);
-        $exec_runt[$exec_clvm] = new $exec_clvm($task);
-        $exec_runt[$exec_clvm]->handle($args);
+        $exec_runt = new $exec_clsn($task);
+        $exec_runt->handle($args);
     }
 
     /**

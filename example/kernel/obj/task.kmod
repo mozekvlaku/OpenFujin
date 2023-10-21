@@ -3,14 +3,14 @@
 /**
  * Copyright 2023 Ing. Tomas Kracik (Vespotok)
  * 
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the 'License');
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  * 
  *     http://www.apache.org/licenses/LICENSE-2.0
  * 
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an 'AS IS' BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -36,7 +36,7 @@ class Task
     private string          $__task_root;
     private string          $__task_display;
 
-    public function __construct(string $command, string $args, int $parent, $owner = USER, $display = "stdout")
+    public function __construct(string $command, string $args, int $parent, $owner = USER, $display = 'stdout')
     {
         $this->__task_pid = 1001;
         $this->__task_command = $command;
@@ -46,12 +46,12 @@ class Task
         $tmp = explode(DIRECTORY_SEPARATOR, $command);
         $tmp = end($tmp);
         $this->__task_root = HOME;
-        $this->__task_name = explode(".",$tmp)[0];
+        $this->__task_name = explode('.',$tmp)[0];
         $this->__task_level = 0;
         $this->__task_meta = array();
         $this->__task_time = time();
         $this->__task_display = $display;
-        if($owner == "root")
+        if($owner == 'root')
         {
             $this->__task_level = 1;
             $this->__task_root = '/';
@@ -126,9 +126,9 @@ class Task
 
     public function get_classname(): string
     {
-        $tmp = explode(DIRECTORY_SEPARATOR, $this->__task_command);
+        $tmp = preg_split('/[\/\\\\]/', $this->__task_command);
         $tmp = end($tmp);
-        return explode(".", $tmp)[0];
+        return explode('.', $tmp)[0];
     }
     /**
      * Returns task type

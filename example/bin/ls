@@ -108,7 +108,7 @@ class ls extends ConsoleApplication
     }
     function colorify($clr)
     {
-        $file = $_SESSION["fjx_root"] . $_SESSION["fjfd_currdir"] . "/" . $clr;
+        $file = FUJIN_ROOT . $this->kernel->IFileSystem($this->me)->pwd() . "/" . $clr;
         if (is_dir($file)) {
             return ;
         } else {
