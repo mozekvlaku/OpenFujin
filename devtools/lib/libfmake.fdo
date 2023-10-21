@@ -1,0 +1,179 @@
+<?php
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * Fujin Make - Fujin Source and Pexin compiler
+ * 
+ * @package     FujinMake
+ * @author      Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\DevTools;
+
+use Fujin\FujinDynamicObject;
+
+class LibFmake extends FujinDynamicObject {
+    const FDO_NAME                            = "FujinMakeCommonLib";
+    const FDO_VERSION                         = "1.0.0";
+
+    private CompilationMode $compilation_mode = CompilationMode::DEVELOPMENT;
+    private string $project_root              = '';
+    private string $project_manifest          = '';
+    private float $compilation_time           = 0.0;
+    private string $compilation_error         = "";
+
+    private string $project_name              = "Undefined";
+    private string $project_version           = "1.0.0";
+    private array $compilation_targets        = [];
+
+    protected function init(): void {
+    }
+
+
+    public function set_mode(CompilationMode $compilation_mode) : void {
+        $this->compilation_mode = $compilation_mode;
+    }
+
+    public function set_project_root(string $project_root) : void {
+        if(!is_dir(realpath(dirname(__DIR__) . DIRECTORY_SEPARATOR . $project_root)))
+            throw new CompilationException('This is not a folder.', 100);
+
+        if (!is_file(realpath(dirname(__DIR__) . DIRECTORY_SEPARATOR . $project_root. DIRECTORY_SEPARATOR . 'fmake.fjmanifest')))
+            throw new CompilationException('This is not a fmake project.', 110);
+
+        $this->project_root = realpath(dirname(__DIR__) . DIRECTORY_SEPARATOR . $project_root);
+        $this->project_manifest = $this->project_root.DIRECTORY_SEPARATOR. 'fmake.fjmanifest';
+        $this->log('Project root set to: ' . $this->project_root);
+    }
+
+    public function get_compilation_time(): float
+    {
+        return $this->compilation_time;
+    }
+
+    public function get_compilation_error(): string
+    {
+        return $this->compilation_error;
+    }
+
+    public function compile(): bool {
+        $start = microtime(true);
+        $this->load_and_validate_projectmanifest();
+        $compiled = 0;
+        foreach ($this->compilation_targets as $target) {
+            switch($target->mode)
+            {
+                case 'fsource':
+                $compiler = new LibFsourceCompiler($this->project_root);
+                break;
+
+                case 'pexin':
+                // TODO: when pexin is ready, add it here
+                default:
+                    throw new CompilationException('The provided mode ('. $target->mode .') is not yet supported by this version of fmake.', 300);
+                break;
+            }
+            $this->log('Preparing ' . count($target->sources) . ' sources');
+            $sources = $compiler->load_sources($target->sources, function ($msg) {
+                $this->log($msg);
+            });
+            $sources = $compiler->prepare_sources($sources);
+            if($target->minify)
+            $sources = $compiler->minify_sources($sources);
+            $this->log('Compiling');
+            $source = $compiler->compile($sources);
+            if($target->binary)
+            $source = $compiler->make_binary($source);
+            $file_ext = '';
+            switch (CompilationTarget::from($target->type))
+            {
+                case CompilationTarget::CONSOLE_APPLICATION:
+                case CompilationTarget::UNDEFINED:
+                case CompilationTarget::INI_CONFIGURATION:
+                    $file_ext = '';
+                    break;
+                case CompilationTarget::GRAPHICAL_APPLICATION:
+                    $file_ext = '.appf';
+                    break;
+                case CompilationTarget::GRAPHICAL_BUNDLE:
+                    $file_ext = '.appfbundle';
+                    break;
+                case CompilationTarget::DYNAMIC_OBJECT:
+                    $file_ext = '.appf';
+                    break;
+                case CompilationTarget::KERNEL_OBJECT:
+                    $file_ext = '.ko';
+                    break;
+                case CompilationTarget::KERNEL_MODEL:
+                    $file_ext = '.kmod';
+                    break;
+                case CompilationTarget::KERNEL_STRUCTURE:
+                    $file_ext = '.fujin';
+                    break;
+                case CompilationTarget::OBJECT_MODEL:
+                    $file_ext = '.model';
+                    break;
+                case CompilationTarget::FUJIN_MANIFEST:
+                    $file_ext = '.fjmanifest';
+                    break;
+                case CompilationTarget::FUJIN_CONFIGURATION:
+                    $file_ext = '.fjconf';
+                    break;
+                case CompilationTarget::GATEWAY_APPLICATION:
+                    $file_ext = '.gw';
+                    break;
+                case CompilationTarget::HTML_FILE:
+                    $file_ext = '.html';
+                    break;
+            }
+
+            if($compiler->save_sources($source, $target->destination . $file_ext, $target->type)) 
+            {
+                $compiled++;
+            }
+            else 
+            {
+                $this->compilation_error = "Could not compile target";
+            }
+        }
+
+        $this->log("Compiled $compiled sources.");
+
+        $this->compilation_time = microtime(true) - $start;
+        return true;
+    }
+
+    private function load_and_validate_projectmanifest() : void {
+        $manifest = json_decode(file_get_contents($this->project_manifest));
+
+        if(!isset($manifest->targets))
+            throw new CompilationException('The manifest file is invalid. Add the targets section. Nothing to compile.', 200);
+
+        if (!isset($manifest->name))
+            throw new CompilationException('The manifest file is invalid. No name.', 210);
+
+        if (!isset($manifest->version))
+            throw new CompilationException('The manifest file is invalid. No version.', 220);
+
+        if (count($manifest->targets) == 0)
+            throw new CompilationException('The manifest file is invalid. No targets specified. Nothing to compile.', 201);
+
+        $this->project_name = $manifest->name;
+        $this->project_version = $manifest->version;
+        $this->compilation_targets = $manifest->targets;
+
+        $this->log('Loaded and validated project file ('.$this->project_name . '@' . $this->project_version .')');
+    }
+}

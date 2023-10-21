@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Copyright 2023 Ing. Tomas Kracik (Vespotok)
  * 
@@ -14,21 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  * 
- * This app prints out current working directory of parent process
- * 
- * @package     ConsoleApps
- * @subpackage  PrintWorkingDirectory
- * @author      Tomáš Kracík <kracik@vespotok.net>
+ * @package     FujinMake
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
  */
-namespace Fujin\ConsoleApps;
-use Fujin\Framework\Kernel\ConsoleApplication;
 
-class pwd extends ConsoleApplication
-{
-    protected function main(array $args) : void
-    {
-        $parent_pid = $this->me->get_parent();
-        $this->print_ln($this->kernel->IFileSystem($this->me)->pwd($parent_pid));
-        $this->sys_exit(0);
-    }
+namespace Fujin\DevTools;
+
+use Exception;
+
+class CompilationException extends Exception {
+    
 }

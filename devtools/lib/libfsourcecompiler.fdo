@@ -1,0 +1,81 @@
+<?php
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * Fujin Make - Fujin Source and Pexin compiler
+ * 
+ * @package     FujinMake
+ * @author      Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\DevTools;
+
+class LibFsourceCompiler implements ICompiler {
+    private string $project_root = "";
+    private bool $is_binary      = false;
+
+    public function __construct(string $project_root)
+    {
+        $this->project_root = $project_root;
+    }
+
+    public function prepare_sources(array $sources): array {
+        // TODO: checking the namespaces, removing <?php etc
+
+        return $sources;
+    }
+
+    public function load_sources(array $paths, callable $log = null): array {
+        $sources = [];
+        foreach($paths as $path) {
+            $file = realpath($this->project_root . DIRECTORY_SEPARATOR . $path . '.fsource');
+            if(!is_file($file))
+            {
+                throw new CompilationException('Could not load file ' . $file . ', as it does not exist.', 900);
+            }
+            $sources[] = file_get_contents($file);
+            if($log != null)
+                $log('Loaded source ' .$path . '.fsource');
+        }
+        return $sources;
+    }
+    public function make_binary(string $source): string {
+        $this->is_binary = true;
+        return gzcompress($source);
+    }
+    public function compile(array $sources): string {
+        return implode("", $sources);
+    }
+    public function save_sources(string $sources, string $destination, string $type): bool {
+        $final_destination = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $this->project_root . DIRECTORY_SEPARATOR . 'dist'  . $destination);
+        if(!is_dir(dirname($final_destination)))
+            mkdir(dirname($final_destination), 0777, true);
+
+        return (bool) file_put_contents($final_destination, $sources);
+    }
+
+    public function minify_sources(array $sources): array
+    {
+        $sources_minified = [];
+        foreach($sources as $source)
+        {
+            $source = preg_replace('/\/\/.*|\/\*.*?\*\//s', '', $source);
+            $source = preg_replace('/\s+/', ' ', $source);
+            $source = str_replace([' (', ') '], ['(', ')'], $source);
+            $sources_minified[] = $source;
+        }
+        return $sources_minified;
+    }
+}

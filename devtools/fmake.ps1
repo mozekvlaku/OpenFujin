@@ -1,0 +1,1 @@
+php fmake.php $args
