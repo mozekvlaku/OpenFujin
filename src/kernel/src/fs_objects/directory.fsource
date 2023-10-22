@@ -1,0 +1,51 @@
+<?php
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace Fujin\Kernel\FjFs;
+class Directory {
+    private Path $path;
+    private array $directory_contents;
+
+    public function __construct(Path $path)
+    {
+        $this->path = $path;
+        $this->directory_contents = array();
+        $this->load_dir();
+    }
+
+    private function load_dir(){
+        if($this->check_permissions())
+        {
+            $this->directory_contents = DirectoryStore::read_dirstore($this->path)["DS_FILES"];
+        }
+    }
+
+    public function get_directory_contents() : array
+    {
+        return $this->directory_contents;
+    }
+
+    public function refresh_directory(): array
+    {
+        return DirectoryStore::update_ds_files($this->path, DirectoryStore::read_dirstore($this->path));
+    }
+
+    private function check_permissions() : bool
+    {
+        return DirectoryStore::has_permissions_to("r", $this->path, USER, "u");
+    }
+}

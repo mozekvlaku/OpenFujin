@@ -1,0 +1,84 @@
+<?php
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace Fujin\Kernel\FjFs;
+
+use Fujin\Kernel\FjFs\Drivers\DevFileDriver;
+use Fujin\Kernel\FjFs\Drivers\RealFileDriver;
+
+class File {
+    public static function read(Path $path, $user = USER, $scope_task = null) {
+        if($path->is_virtual())
+        {
+            $virtual_file_type = $path->get_virtual_type();
+
+            switch($virtual_file_type) {
+                case VirtualFolderType::DEV:
+                    return DevFileDriver::read($path, $scope_task);
+            }
+        }
+        else
+        {
+            return RealFileDriver::read($path, $user);
+        }
+    }
+    public static function mkdir(Path $path, $user = USER)
+    {
+        if ($path->is_virtual()) {
+            $virtual_file_type = $path->get_virtual_type();
+            return null;
+        } else {
+            return RealFileDriver::mkdir($path,$user);
+        }
+    }
+    public static function write(Path $path, $contents, $user = USER)
+    {
+        if ($path->is_virtual()) {
+            $virtual_file_type = $path->get_virtual_type();
+
+            switch ($virtual_file_type) {
+                case VirtualFolderType::DEV:
+                    return DevFileDriver::write($path, $contents, $user);
+            }
+        } else {
+            return RealFileDriver::write($path, $contents, $user);
+        }
+    }
+    public static function rm(Path $path, $user = USER)
+    {
+        if ($path->is_virtual()) {
+            $virtual_file_type = $path->get_virtual_type();
+
+            switch ($virtual_file_type) {
+                case VirtualFolderType::DEV:
+                    return DevFileDriver::rm($path,$user);
+            }
+        } else {
+            return RealFileDriver::rm($path, $user);
+        }
+    }
+    public static function rmdir(Path $path, $user = USER)
+    {
+        if ($path->is_virtual()) {
+            $virtual_file_type = $path->get_virtual_type();
+
+            return null;
+        } else {
+            return RealFileDriver::rmdir($path, $user);
+        }
+    }
+}

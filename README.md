@@ -20,6 +20,25 @@
 
 OpenFujin is an open source fork of Fujin project, respecting its license and copyrights. The OpenFujin project is licensed under the [Apache License 2.0](LICENSE), which permits you to freely use, modify, and share this code with the community.
 
+## How to start
+
+First, you will need PHP 8.2> installed. Refer to the official [www.php.net](PHP) website for instructions. Next, clone the repository. After that you can compile your own OpenFujin distro.
+
+```console
+you@something:~$ git clone https://github.com/mozekvlaku/OpenFujin.git
+
+you@something:~$ cd OpenFujin/devtools
+
+you@something:~/OpenFujin/devtools$ fmake compile ../ -v
+
+you@something:~/OpenFujin/devtools$ cd ../dist/openfujin@3.2.0
+
+// Run OpenFujin
+you@something:~/OpenFujin/dist/openfujin@3.2.0$ php -S localhost:8080 -t kernelc.fujin
+```
+
+Now, navigate to localhost:8080 and you will find OpenFujin running.
+
 ## License
 
 OpenFujin project is licensed under the [Apache License 2.0](LICENSE). The Apache License 2.0 is an open source license that allows you to use the code freely in accordance with its terms. The Apache License 2.0 provides clear provisions regarding copyrights, patents, and responsibilities.

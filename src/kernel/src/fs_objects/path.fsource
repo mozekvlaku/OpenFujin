@@ -1,0 +1,140 @@
+<?php
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace Fujin\Kernel\FjFs;
+class Path {
+    private string $path_string;
+    private bool $is_virtual = false;
+    private array $virtual_dirs;
+
+    public function __construct(string $path)
+    {
+        $this->path_string = $path;
+        $this->virtual_dirs = array(
+            DIRECTORY_SEPARATOR."proc", 
+            DIRECTORY_SEPARATOR."fjdb",
+            DIRECTORY_SEPARATOR."dev",
+            DIRECTORY_SEPARATOR."run", 
+            DIRECTORY_SEPARATOR."sys"
+        );
+    }
+
+    public function is_inside(Path $checking_path) : bool
+    {
+        $len = strlen($checking_path->get_path_string());
+        return (substr($this->path_string, 0, $len) === $checking_path->get_path_string());
+    }
+
+    private function is_inside_string(string $string): bool
+    {
+        $len = strlen ($string);
+        return (substr($this->path_string, 0, $len) === $string);
+    }
+
+    public function get_path_string() : string {
+        $this->clean_path();
+        return $this->path_string;
+    }
+
+    public function is_root(): bool
+    {
+        $this->clean_path();
+        if($this->path_string == DIRECTORY_SEPARATOR)
+            return true;
+
+        return false;
+    }
+
+    public function get_parent_directory() : Path {
+        $path = dirname($this->get_path_string());
+        return new Path($path);
+    }
+
+    public function add_separator() : void
+    {
+        $this->path_string = rtrim($this->path_string, DIRECTORY_SEPARATOR);
+        $this->path_string .= DIRECTORY_SEPARATOR;
+    }
+
+    public function trim_separator() : void
+    {
+        $this->path_string = rtrim($this->path_string, DIRECTORY_SEPARATOR);
+    }
+
+    public function get_full_root(): string
+    {
+        $this->clean_path();
+        return FUJIN_ROOT . $this->path_string;
+    }
+
+    private function clean_path() : void
+    {
+        $this->path_string = str_replace(FUJIN_ROOT, "", $this->path_string);
+    }
+
+    public function is_virtual() : bool {
+        for ($i = 0; $i < count($this->virtual_dirs); $i++) {
+            if ($this->is_inside_string($this->virtual_dirs[$i])) {
+                $this->is_virtual = true;
+            }
+        }
+        return $this->is_virtual;
+    }
+
+    public function get_virtual_type() : int
+    {
+        if ($this->is_inside_string(DIRECTORY_SEPARATOR."proc"))
+            return VirtualFolderType::PROC;   
+            
+        if ($this->is_inside_string(DIRECTORY_SEPARATOR."run"))
+            return VirtualFolderType::RUN;   
+        
+        if ($this->is_inside_string(DIRECTORY_SEPARATOR."fjdb"))
+            return VirtualFolderType::FJDB;
+
+        if ($this->is_inside_string(DIRECTORY_SEPARATOR."dev"))
+            return VirtualFolderType::DEV;
+        
+        if ($this->is_inside_string(DIRECTORY_SEPARATOR."sys"))
+            return VirtualFolderType::SYS;
+
+        return VirtualFolderType::NON;
+    }
+
+    public function get_filename() : string 
+    {
+        $path_parts = explode(DIRECTORY_SEPARATOR,$this->path_string);
+        return end($path_parts);
+    }
+
+    public function is_in_home() :bool {
+        if(strpos($this->get_full_root(), DIRECTORY_SEPARATOR.'home'.DIRECTORY_SEPARATOR.USER) !== false)
+        {
+            return true;
+        }
+        return false;
+    }
+}
+class VirtualFolderType
+{
+    const PROC = 1;
+    const FJDB = 2;
+    const DEV = 3;
+    const RUN = 4;
+    const SYS = 5;
+    const NON = 6;
+}

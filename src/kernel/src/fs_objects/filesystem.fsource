@@ -1,0 +1,303 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     Kernel
+ * @subpackage  KernelObjects
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+namespace Fujin\Kernel;
+
+use Exception;
+use Fujin\Kernel\FjFs\Directory;
+use Fujin\Kernel\FjFs\DirectoryStore;
+use Fujin\Kernel\FjFs\File;
+use Fujin\Kernel\FjFs\FileMode;
+use Fujin\Kernel\FjFs\Path;
+use Fujin\Kernel\Obj\KernelObject;
+
+class FileSystem extends KernelObject {
+    const KERNEL_OBJECT_NAME = "FileSystem";
+    const KERNEL_OBJECT_VERSION = "1.0";
+    const KERNEL_OBJECT_TYPE = "KoTypeVoluntary";
+    const KERNEL_OBJECT_PATH = "/nukernel/filesystem.ko";
+
+    /**
+    * @brief Checks if $path is accessible to process $pid.
+    * @param $pid
+    * @param $path
+    * @returns True if access is allowed false otherwise. Note : The path is checked by comparing it against the path of the root
+    */
+    public function access(int $pid, string $path): bool
+    {
+        $root_of_process = $_SESSION['fjx_tasks'][$pid]["root"];
+        $path_queried = new Path($path);
+        $path_root = new Path($root_of_process);
+        return $path_root->is_inside($path_queried);
+    }
+    /**
+    * @brief Change the current working directory for the current process.
+    * @param $path
+    * @param $pid
+    */
+    public function chdir(string $path, int $pid = 0): void
+    {
+        $path = str_replace(DIRECTORY_SEPARATOR . DIRECTORY_SEPARATOR ,DIRECTORY_SEPARATOR,$this->parse_path($path));
+        // Set the current directory of the task
+        if ($pid == 0) {
+            /** Set global legacy current directory */
+            $_SESSION["fjfd_currdir"] = $path;
+        } else {
+            $_SESSION['fjx_tasks'][$pid]["dir"] = $path;
+        }
+    }
+
+    /**
+    * @brief Get current directory of task $pid. 
+    * @param $pid
+    * @returns current directory of task or NULL if not found in session or invalid pid ( 0 = current directory )
+    */
+    public function pwd(int $pid = 0): string
+    {
+        return $this->kernel->sci_get_task($pid)->get_root();
+    }
+    /**
+    * @brief Change the mode of a file or directory. This is a POSIX compliant version of chmod ().
+    * @param $path
+    * @param $new_mode
+    * @returns Returns TRUE on success or FALSE on failure. Errors are returned in the following cases : permission is denied file does not exist. permission is denied for other permissions
+    */
+    public static function chmod(string $path, FileMode $new_mode): void
+    {
+    }
+
+    /**
+    * @brief Change owner of a file or directory. This is a wrapper for DirectoryStore :: has_permissions_to
+    * @param $path
+    * @param $user
+    * @param $group
+    * @param $recursive
+    */
+    public function chown(string $path, string $user, string $group, bool $recursive = false): void
+    {
+        /**
+         * Potřeba dodělat úpravu věcí v OT a v tom co má 
+         * directory, prostě jen to mění vlasntíky, to nestačí
+         * 
+         * 
+         */
+
+        $owner = "root";
+        // Get the owner of the scope task.
+        if($this->scope_task != null)
+        {
+           $owner = $this->scope_task->get_owner();
+        }
+        
+        
+        $file = new Path($path);
+        
+        $dir = $file->get_parent_directory();
+        // This method is used to change ownership of a file.
+        if (DirectoryStore::has_permissions_to("r", $file, $owner)) {
+            $changes = array(
+                "FN" => $file->get_filename(),
+                "OW" => $user,
+                "OG" => $group
+            );
+            // generates a directory store for the current directory
+            if(!is_file($dir->get_full_root() . DIRECTORY_SEPARATOR . "_DirStore"))
+            {
+                echo "generating ". $dir->get_full_root();
+                $path_c = new Path($dir->get_full_root() . DIRECTORY_SEPARATOR);
+                $dirstore = DirectoryStore::generate_ds_files($path_c);
+                DirectoryStore::save_dirstore($path_c, $dirstore);
+            }
+            $newdirstore = json_decode(file_get_contents($dir->get_full_root() . DIRECTORY_SEPARATOR . "_DirStore"), true);
+            $files = DirectoryStore::update_ds_files($dir, $newdirstore, $changes);
+            $checksum = DirectoryStore::size($dir->get_full_root());
+            $newdirstore["DS_FILES"] = $files;
+            $newdirstore["DS_CACHE"]["CA_FILES_CHECKSUM"] = $checksum;
+            $newdirstore["DS_INFO"]["IN_CREATED"] = date("Y-m-d h:i:sa");
+       
+            DirectoryStore::save_dirstore($dir,$newdirstore);
+
+            $fullpath = FUJIN_ROOT . str_replace(FUJIN_ROOT, "",$path);
+
+            // if fullpath is a directory or a directory
+            if(is_dir($fullpath))
+            {
+                $inner_dirstore = DirectoryStore::read_dirstore($file);
+                $inner_dirstore["DS_ACCESS"]["AS_OWNER"] = $user;
+                $inner_dirstore["DS_ACCESS"]["AS_GROUP"] = $user;
+                DirectoryStore::save_dirstore($file, $inner_dirstore);
+            }
+        }
+        else
+        {
+            throw new Exception("You don't have permissions to change ownership of this file.");
+        }
+
+        // Recursively change the user and group permissions of the current directory.
+        if($recursive)
+        {
+            $fullpath = FUJIN_ROOT . str_replace(FUJIN_ROOT, "", $path);
+
+            // Change the owner of a directory
+            if (is_dir($fullpath)) {
+                $files = scandir($fullpath);
+                foreach ($files as $file) {
+                    // Change the owner of a file or directory
+                    if(!($file == "." || $file == ".."))
+                    {
+                        // Change the owner of the file if it exists
+                        if (is_dir($fullpath . DIRECTORY_SEPARATOR . $file)) {
+                            $this->chown( $fullpath . DIRECTORY_SEPARATOR . $file, $user, $group, true);
+                        }
+                    }
+                    
+                }
+            }
+        }
+    }
+    /**
+    * @brief Read contents of a file. This is a wrapper around File :: read ( Path $user $scope_task )
+    * @param $path
+    * @param $owner
+    * @returns File contents or false if error ( file not found or cannot be read ). Note : if you want to read a file that is owned by another user you should use read_owned
+    */
+    public function read(string $path, $owner = null)
+    {
+        $user = USER;
+        // Get the owner of the scope task.
+        if ($this->scope_task != null) {
+            $user = $this->scope_task->get_owner();
+        }
+        // Set the owner of the user.
+        if($owner != null)
+            $user = $owner;
+    
+        return File::read(new Path($path), $user, $this->scope_task);
+    }
+    /**
+    * @brief Remove a file or directory. If $owner is null the current user is used. This is a wrapper around File :: rm ()
+    * @param $path
+    * @param $owner
+    * @returns True on success false on failure ( no error will be thrown in this case ). Note that false is returned if the file does not exist
+    */
+    public function rm(string $path, $owner = null)
+    {
+        $user = USER;
+        // Get the owner of the scope task.
+        if ($this->scope_task != null) {
+            $user = $this->scope_task->get_owner();
+        }
+        // Set the owner of the user.
+        if($owner != null)
+            $user = $owner;
+
+        return File::rm(new Path($path), $user);
+    }
+    /**
+    * @brief Remove a directory. This is a wrapper for File :: rmdir (). If $owner is null the current user is used.
+    * @param $path
+    * @param $owner
+    * @returns True on success false on
+    */
+    public function rmdir(string $path, $owner = null)
+    {
+        $user = USER;
+        // Get the owner of the scope task.
+        if ($this->scope_task != null) {
+            $user = $this->scope_task->get_owner();
+        }
+        // Set the owner of the user.
+        if ($owner != null)
+            $user = $owner;
+        return File::rmdir(new Path($path), $user);
+    }
+    /**
+    * @brief Write to a file. This is a wrapper around File :: write with $owner = $this - > get_owner ()
+    * @param $path
+    * @param $contents
+    * @param $owner
+    * @returns True if the file was succesfully written false if an error occurred ( for example if the file already exists
+    */
+    public function write(string $path, $contents, $owner = null) : bool
+    {
+        $user = USER;
+        // Get the owner of the scope task.
+        if ($this->scope_task != null) {
+            $user = $this->scope_task->get_owner();
+        }
+        // Set the owner of the user.
+        if ($owner != null)
+            $user = $owner;
+    
+        return File::write(new Path($path), $contents, $user);
+    }
+    /**
+    * @param $path
+    * @param $owner
+    * @returns True on success false on failure. Note that false is returned if the directory already exists and is a directory
+    */
+    public function mkdir(string $path, $owner = null): bool
+    {
+        $user = USER;
+        // Get the owner of the scope task.
+        if ($this->scope_task != null) {
+            $user = $this->scope_task->get_owner();
+        }
+        // Set the owner of the user.
+        if ($owner != null)
+            $user = $owner;
+
+        return File::mkdir(new Path($path), $user);
+    }
+    /**
+    * @brief List files and sub - directories in a directory. This method is called by PHP's list command to list files and sub - directories in a directory.
+    * @param $path
+    * @returns A directory object that contains information about the directory and its subdirectories. Note that the contents of the directory will be read from the file system
+    */
+    public function list(string $path): Directory
+    {
+        return new Directory(new Path($path));
+    }
+
+    /**
+    * @brief Parse and normalize a path. This is used by get_path to get the path to the file or directory
+    * @param string $path
+    */
+    private function parse_path(string $path): string
+    {
+        // Returns the directory where the current working directory is stored.
+        if ($path == "..")
+        {
+            return dirname($this->pwd());
+        }
+
+        // Get the current working directory.
+        if ($path == ".")
+            return $this->pwd();
+        
+        // Returns the path to the directory.
+        if ($path[0] == DIRECTORY_SEPARATOR) {
+            return $path;
+        }
+        $local_path = ltrim($path, ".");
+        return $this->pwd() . DIRECTORY_SEPARATOR . $local_path;
+    }
+}

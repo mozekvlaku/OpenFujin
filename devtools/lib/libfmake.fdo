@@ -134,6 +134,9 @@ class LibFmake extends FujinDynamicObject {
                 case CompilationTarget::GATEWAY_APPLICATION:
                     $file_ext = '.gw';
                     break;
+                case CompilationTarget::KERNEL_SELF:
+                    $file_ext = '.kernel';
+                    break;
                 case CompilationTarget::HTML_FILE:
                     $file_ext = '.html';
                     break;
@@ -158,7 +161,7 @@ class LibFmake extends FujinDynamicObject {
     private function load_and_validate_projectmanifest() : void {
         $manifest = json_decode(file_get_contents($this->project_manifest));
 
-        if(!isset($manifest->targets))
+        if(!isset($manifest->targets) && !isset($manifest->projects))
             throw new CompilationException('The manifest file is invalid. Add the targets section. Nothing to compile.', 200);
 
         if (!isset($manifest->name))
@@ -167,11 +170,37 @@ class LibFmake extends FujinDynamicObject {
         if (!isset($manifest->version))
             throw new CompilationException('The manifest file is invalid. No version.', 220);
 
-        if (count($manifest->targets) == 0)
+        if (isset($manifest->targets) && count($manifest->targets) == 0 && !isset($manifest->projects))
             throw new CompilationException('The manifest file is invalid. No targets specified. Nothing to compile.', 201);
 
         $this->project_name = $manifest->name;
         $this->project_version = $manifest->version;
+        // If multiproject
+        if(isset($manifest->projects))
+        {
+            $path = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $this->project_root . DIRECTORY_SEPARATOR . $manifest->projects); 
+            if (!is_dir($path))
+                throw new CompilationException('The manifest file is invalid. Provided projects dir is invalid.', 202);
+            $projects = scandir($path);
+            foreach($projects as $project)
+            {
+                if($project == '.' || $project == '..' || $project == '.DS_Store')
+                continue;
+                if(is_file(realpath($path . DIRECTORY_SEPARATOR . $project . DIRECTORY_SEPARATOR . 'fmake.fjmanifest')))
+                {
+                    $subproject_manifest = json_decode(file_get_contents($path . DIRECTORY_SEPARATOR . $project . DIRECTORY_SEPARATOR . 'fmake.fjmanifest'));
+                    foreach($subproject_manifest->targets as $target)
+                    {
+                        for($i = 0; $i < count($target->sources); $i++)
+                        {
+                            $target->sources[$i] = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, DIRECTORY_SEPARATOR . $manifest->projects . DIRECTORY_SEPARATOR . $project . $target->sources[$i]); 
+                        }
+                        array_push($this->compilation_targets, $target);
+                    }
+                }
+            }
+        }
+        else
         $this->compilation_targets = $manifest->targets;
 
         $this->log('Loaded and validated project file ('.$this->project_name . '@' . $this->project_version .')');

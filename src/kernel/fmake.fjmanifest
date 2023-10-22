@@ -1,0 +1,91 @@
+{
+    "name": "kernel",
+    "version": "3.2.0",
+    "author": {
+        "name": "Tomáš Kracík",
+        "email": "kracik@vespotok.net",
+        "url": ""
+    },
+    "licence": "Apache-2.0",
+    "context": {
+        "version": ">3.2.0",
+        "distros": [
+            "openfujin",
+            "*"
+        ]
+    },
+    "targets": [
+        {
+            "destination": "/kernel/fujin",
+            "sources": [
+                "/src/kernel"
+            ],
+            "mode": "fsource",
+            "type": "kernel",
+            "minify": false,
+            "binary": false
+        },
+        {
+            "destination": "/kernel/filesystem",
+            "sources": [
+                "/src/fs_objects/filesystem"
+            ],
+            "mode": "fsource",
+            "type": "kernelobj",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/fjfs/directory",
+            "sources": [
+                "/src/fs_objects/directory"
+            ],
+            "mode": "fsource",
+            "type": "kernelmodel",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/fjfs/directorystore",
+            "sources": [
+                "/src/fs_objects/directorystore"
+            ],
+            "mode": "fsource",
+            "type": "kernelmodel",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/fjfs/file",
+            "sources": [
+                "/src/fs_objects/file"
+            ],
+            "mode": "fsource",
+            "type": "kernelmodel",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/fjfs/filemode",
+            "sources": [
+                "/src/fs_objects/filemode"
+            ],
+            "mode": "fsource",
+            "type": "kernelmodel",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/fjfs/path",
+            "sources": [
+                "/src/fs_objects/path"
+            ],
+            "mode": "fsource",
+            "type": "kernelmodel",
+            "minify": true,
+            "binary": true
+        }
+        
+    ],
+    "make": "dist"
+}

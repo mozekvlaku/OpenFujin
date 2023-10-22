@@ -29,6 +29,7 @@ enum CompilationTarget: string {
     case KERNEL_OBJECT         = 'kernelobj';
     case KERNEL_MODEL          = 'kernelmodel';
     case KERNEL_STRUCTURE      = 'kernelstruct';
+    case KERNEL_SELF           = 'kernel';
     case GATEWAY_APPLICATION   = 'gateway';
     case OBJECT_MODEL          = 'object';
     case FUJIN_MANIFEST        = 'manifest';

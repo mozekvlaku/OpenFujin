@@ -1,0 +1,300 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     Kernel
+ * @subpackage  KernelObjects
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\Kernel;
+
+use Fujin\Kernel\Obj\EndpointEnum;
+use Fujin\Kernel\Obj\KernelObject;
+
+class FSec extends KernelObject
+{
+    const KERNEL_OBJECT_NAME = "FujinSecuritySubsystem";
+    const KERNEL_OBJECT_VERSION = "1.0";
+    const KERNEL_OBJECT_TYPE = "KoTypeVoluntary";
+    const KERNEL_OBJECT_PATH = "/nukernel/fsec.ko";
+
+    const ENDPOINT = "kernelc.fujin";
+
+    /**
+    * @brief Get endpoint address to send to Fujin. This function is used to get a unique endpoint address for a user.
+    * @param $endpoint_type
+    * @return Endpoint address ( string ) or empty string if not found in tmp / security / file or error occurred
+    */
+    public function get_endpoint(EndpointEnum $endpoint_type) : string {
+        $filename_no_ext    = date("Ymd");
+        $filename_ext       = $filename_no_ext . ".ini";
+        $filedir            = FUJIN_ROOT . "/tmp/security/";
+        $fileroot           = $filedir . $filename_ext;
+        $endpoint_address   = "";
+
+        // Create the directory if it doesn t exist.
+        if(!is_dir($filedir))
+            mkdir($filedir);
+
+        // Write an endpoint address from the ini file
+        if(!is_file($fileroot)) {
+            $endpoint_code = rand(10000,99999);
+            $endpoint_address = FUJIN_PATH . "/" . $endpoint_code . ".fujin";
+            touch($fileroot);
+            $ini_file_array = array(
+                $endpoint_type->name => $endpoint_address
+            );
+            $this->write_ini($ini_file_array, $fileroot);
+        }
+        else
+        {
+            $ini_file_array = parse_ini_file($fileroot);
+
+            // Generate an endpoint address from the ini file
+            if (!isset($ini_file_array[$endpoint_type->name])) {
+                $endpoint_code = rand(10000,99999);
+                $endpoint_address = FUJIN_PATH . "/" . $endpoint_code . ".fujin";
+                $ini_file_array[$endpoint_type->name] = $endpoint_address;
+                $this->write_ini($ini_file_array, $fileroot);
+                return $endpoint_address;
+            } else {
+                $endpoint_address = $ini_file_array[$endpoint_type->name];
+            }
+        }
+        $htaccess = $this->read_htaccess_position(static::KERNEL_OBJECT_NAME . $endpoint_type->name,$endpoint_address);
+
+        // Add rewrite rule to rewrite rule
+        if($htaccess == false)
+        {
+            $rewrite = str_replace(FUJIN_PATH . "/", "", $endpoint_address);
+            $meta = array(
+                "id" => static::KERNEL_OBJECT_NAME . $endpoint_type->name,
+                "subid" => $endpoint_address,
+                "minver" => VER
+            );
+            $data = "RewriteRule $rewrite " . static::ENDPOINT;
+            $this->add_htaccess_data($meta, $data);
+        }
+        
+        return $endpoint_address;
+    }
+
+    /**
+    * @brief Adds data to htaccess file. This is used to save the file for debugging purposes. We don't use this function in production because it's a bit tricky to do it with our data and not a whole lot of code
+    * @param $metadata
+    * @param $data
+    */
+    private function add_htaccess_data(array $metadata, string $data) : void
+    {
+        usleep(300);
+        $metadata_string = "";
+        $htaccess_path = FUJIN_ROOT . "/.htaccess";
+
+        foreach($metadata as $key=>$value)
+        {
+            $metadata_string .= "$key=$value,";
+        }
+
+        $metadata_string = rtrim($metadata_string, ",");
+
+        $start_line = "\n" . '# !STR! ' . $metadata_string . "\n";
+        $end_line = "\n" . '# !END! ' . $metadata_string . "\n";
+        $complete_data = $start_line . $data . $end_line;
+        file_put_contents($htaccess_path, $complete_data, FILE_APPEND );
+    }
+
+    /**
+    * @brief Reads the htaccess and returns the start and end positions of $section_id and $section_subid.
+    * @param $section_id
+    * @param $section_subid
+    * @return True if found false if not found or array of metadata on success ( $start $end ) or false
+    */
+    private function read_htaccess_position(string $section_id, string $section_subid = null) : bool|array 
+    {
+        $htaccess_path = FUJIN_ROOT . "/.htaccess";
+        $htaccess_file = file_get_contents($htaccess_path);
+
+        $section_start = false;
+        $section_end = false;
+        $metadata_return = array();
+
+        $file_lines = explode("\n",$htaccess_file);
+        foreach ($file_lines as $line_num => $line)
+        {
+            $metadata_info = $this->parse_line($line);
+            // This method is used to get the metadata information
+            if($metadata_info["type"] == "header")
+            {
+                // This method is used to get the metadata information for a section
+                if($metadata_info["meta"]["id"] == $section_id)
+                {
+                    // Get the metadata information for the section.
+                    if($section_subid != null)
+                    {
+                        // Get the metadata information for the section
+                        if(isset($metadata_info["meta"]["subid"]))
+                        {
+                            // The metadata information for the section.
+                            if ($metadata_info["meta"]["subid"] == $section_subid) {
+                                // if sten is start or end
+                                if ($metadata_info["sten"] == "start") {
+                                    $section_start = $line_num;
+                                    $metadata_return = $metadata_info["meta"];
+                                } else {
+                                    $section_end = $line_num;
+                                    break;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // if sten is start or end
+                            if ($metadata_info["sten"] == "start") {
+                                $section_start = $line_num;
+                                $metadata_return = $metadata_info["meta"];
+                            } else {
+                                $section_end = $line_num;
+                                break;
+                            }
+                        }
+                    } 
+                    else
+                    {
+                        // if sten is start or end
+                        if ($metadata_info["sten"] == "start") {
+                            $section_start = $line_num;
+                            $metadata_return = $metadata_info["meta"];
+                        } else
+                        {
+                            $section_end = $line_num;
+                            break;
+                        }
+                    }
+
+                    
+                }
+            }
+        }
+
+        // Returns an array of start end metadata
+        if($section_start == false)
+            return false;
+        else
+            return array(
+                "start" => $section_start,
+                "end" => $section_end,
+                "metadata" => $metadata_return
+            );
+    }
+
+    /**
+    * @brief Parses a line of the source and returns an array with the type and data. This is the function that does the parsing
+    * @param $line
+    * @return An array with the type and data of the line. The type is " code " " comment " " sten
+    */
+    private function parse_line(string $line) : array
+    {
+        // Return the type code data array
+        if($line[0] != "#")
+        {
+            return array(
+                "type" => "code",
+                "data" => $line
+            );
+        }
+
+        // comment type comment data comment
+        if ($line[2] != "!") {
+            return array(
+                "type" => "comment",
+                "data" => $line
+            );
+        }
+
+        $line = ltrim($line, "#");
+        $line = trim($line);
+
+        $type = substr($line, 0,5);
+
+        // set the type of the type to start or end
+        if($type == "!STR!")
+            $type = "start";
+        else    
+            $type = "end";
+
+        $metadata_string = trim(substr($line, 6));
+        $metadata_array  = explode(",", $metadata_string);
+
+        $metadata = array();
+
+        foreach($metadata_array as $meta)
+        {
+            $tmp = explode("=", $meta);
+            $metadata[$tmp[0]] = $tmp[1];
+        }
+
+        return array(
+            "type" => "header",
+            "data" => $line,
+            "sten" => $type,
+            "meta" => $metadata
+        );
+    }
+
+    /**
+    * @brief Write an array to an INI file. This is a wrapper around safefilerewrite to handle multi - dimensional arrays
+    * @param $array
+    * @param $file
+    */
+    private function write_ini($array, $file) : void
+    {
+        $res = array();
+        foreach ($array as $key => $val) {
+            // Convert an array of values to a string.
+            if (is_array($val)) {
+                $res[] = "[$key]";
+                foreach ($val as $skey => $sval) $res[] = "$skey = " . (is_numeric($sval) ? $sval : '"' . $sval . '"');
+            } else $res[] = "$key = " . (is_numeric($val) ? $val : '"' . $val . '"');
+        }
+        $this->safefilerewrite($file, implode("\r\n", $res));
+    }
+
+    /**
+    * @brief Safely write data to a file. This is a wrapper around flock () to prevent race conditions when writing to the same file
+    * @param $file_name
+    * @param $data_to_save
+    */
+    private function safefilerewrite($file_name, $data_to_save) : void
+    {
+        // This function will write the data to the file
+        if ($fp = fopen($file_name, 'w')) {
+            $startTime = microtime(TRUE);
+            do {
+                $canWrite = flock($fp, LOCK_EX);
+                // Wait for a random amount of time to be written to the server.
+                if (!$canWrite) usleep(round(rand(0, 100) * 1000));
+            } while ((!$canWrite) and ((microtime(TRUE) - $startTime) < 5));
+
+            // Write the data to the file.
+            if ($canWrite) {
+                fwrite($fp, $data_to_save);
+                flock($fp, LOCK_UN);
+            }
+            fclose($fp);
+        }
+    }
+}

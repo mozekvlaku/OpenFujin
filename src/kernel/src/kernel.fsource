@@ -1,0 +1,406 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     Kernel
+ * @subpackage  Kernel
+ * @author      Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\Kernel;
+
+use Exception;
+use Fujin\Kernel\Obj\Task;
+
+/**
+ * Class Fujin
+ *
+ * Represents the Fujin Kernel, providing access to various kernel objects and system functions.
+ */
+class Fujin
+{
+    /**
+     * Fujin Kernel Runtime.
+     */
+    private static $runtime;
+
+    /**
+     * Static Kernel Objects
+     */
+    public $ko_filesystem;
+    public $ko_fsec;
+    public $ko_io;
+    public $ko_javascriptvm;
+    public $ko_mem;
+
+    /**
+     * Runtime Kernel Objects
+     */
+    public Scheduler $ko_scheduler;
+
+    private $conf;
+
+    /**
+     * Private constructor for the Fujin class.
+     */
+    private function __construct()
+    {
+        // Assign basic information
+        $this->bootstrap();
+        header('fujin-version: ' . VER);
+
+        // Create autoloader
+        $this->modlib();
+
+        // Create Scheduler
+        if (!isset($this->ko_scheduler) || $this->ko_scheduler == null) {
+            $this->ko_scheduler = new Scheduler($this);
+        }
+    }
+
+    /**
+     * Fujin Kernel Call
+     * Gets the whole kernel for direct calls
+     *
+     * @return Fujin
+     */
+    public static function c(): Fujin
+    {
+        if (self::$runtime === null) {
+            self::$runtime = new self;
+        }
+        return self::$runtime;
+    }
+
+    public static function ask(string $syscall): callable
+    {
+        if (self::$runtime === null) {
+            self::$runtime = new self;
+        }
+        return self::$runtime->$syscall;
+    }
+
+    public function __int_scheduler(): Scheduler
+    {
+        return $this->ko_scheduler;
+    }
+
+    private function modlib(): void
+    {
+        $configuration = json_decode(file_get_contents(FUJIN_ROOT . '/etc/system.fjconf'))->modlib;
+        $this->conf = (array) $configuration;
+        spl_autoload_register(function ($class) {
+            foreach ($this->conf as $item) {
+                $namespace = $item->namespace;
+                $path = $item->path;
+                $exts = $item->exts;
+                if (strpos($class, $namespace) === 0) {
+                    $full_path = FUJIN_ROOT . $path . str_replace('\\', '/', str_replace($namespace, '', $class));
+                    foreach ($exts as $ext) {
+                        $file = strtolower($full_path . $ext);
+                        if (file_exists($file)) {
+                            require $file;
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        });
+    }
+
+    /**
+     * SCI
+     * start_process syscall
+     * Starts a process from the path to an executable.
+     *
+     * @param string $bin_path - path to an executable.
+     * @return int returns process id.
+     */
+    public function sci_start_process(string $bin_path, Task|int $parent, string $owner = USER, string $display = 'stdout'): int
+    {
+        $args = '';
+        $command_arr = explode(' ', $bin_path);
+        if (count($command_arr) > 1) {
+            $args = $command_arr[1];
+        }
+
+        $exec_path = FUJIN_ROOT . $bin_path;
+        if (!is_file($exec_path)) {
+            throw new Exception('This executable does not exist!');
+        }
+
+        $parent_task = $this->sci_get_task_pid($parent);
+        $new_task = new Task($command_arr[0], $args, $parent_task, $owner, $display);
+        $this->ko_scheduler->register_task($new_task, $parent_task);
+        return $new_task->__task_pid;
+    }
+
+    /**
+     * SCI
+     * invoke_process syscall
+     * Gives CPU time to the process.
+     *
+     * @param Task|int $process - id or Task of the process.
+     * @param string $message - message, command, or argument sent to the process.
+     * @return void
+     */
+    public function sci_invoke_process(Task|int $process, string $message = null): void
+    {
+        $task = $this->sci_get_task($process);
+        $this->ko_scheduler->invoke_process($task, $message);
+    }
+
+    /**
+     * SCI
+     * end_process syscall
+     * Ends a process with the specified PID.
+     *
+     * @param int $pid - Process ID.
+     * @param int $signal - Signal to send to the process.
+     * @return bool returns true if successful.
+     */
+    public function sci_end_process(int $pid, int $signal): bool
+    {
+        $task = $this->sci_get_task($pid);
+        return $this->ko_scheduler->kill_task($task);
+    }
+
+    /**
+     * SCI
+     * send_message syscall
+     * Sends a message to a process and invokes it.
+     *
+     * @param Task|int $pid - Process ID.
+     * @param string $message - Message sent to the process.
+     * @return void
+     */
+    public function sci_send_message(Task|int $pid, string $message): void
+    {
+        $task = $this->sci_get_task($pid);
+        $task->set_args($message);
+        $this->ko_scheduler->save_task_state($task);
+    }
+
+    /**
+     * SCI
+     * Returns Task from PID or Task
+     * Uses Scheduler.
+     *
+     * @param Task|int $cp - PID or Task.
+     * @return Task|null - returns null if the task is undefined.
+     */
+    public function sci_get_task(Task|int $cp): Task|null
+    {
+        if ($cp instanceof Task) {
+            return $cp;
+        }
+        if ($cp === 0) {
+            // Go back to sysdaemon
+            $cp = 1;
+        }
+        return $this->ko_scheduler->get_task($cp);
+    }
+
+    /**
+     * SCI
+     * Returns PID from PID or Task
+     * Uses Scheduler.
+     *
+     * @param Task|int $cp - PID or Task.
+     * @return int|null - returns null if the task is undefined.
+     */
+    public function sci_get_task_pid(Task|int $cp): int|null
+    {
+        if ($cp instanceof Task) {
+            return $cp->__task_pid;
+        }
+        if ($cp === 0) {
+            return null;
+        }
+        return $cp;
+    }
+
+    /**
+     * SCI
+     * Returns true if the task with the specified executable path exists.
+     * Uses Scheduler.
+     *
+     * @param string $bin - path of executable.
+     * @param string $display - display.
+     * @return Task|bool - returns false if the task is undefined.
+     */
+    public function sci_task_exists(string $bin, string $display = null): Task|bool
+    {
+        return $this->ko_scheduler->get_task_by_bin($bin, $display);
+    }
+
+    /**
+     * SCI
+     * Sets the running task.
+     *
+     * @param Task $task - path of executable.
+     * @param string $display - display.
+     * @return void
+     */
+    public function sci_set_task(int|Task $cp, string $display): void
+    {
+        $task = $this->sci_get_task($cp);
+        $_SESSION['fjx_currentTask'][$display] = $task->__task_pid;
+    }
+
+    /**
+     * Fujin FileSystem interface
+     *
+     * @return FileSystem
+     */
+    public static function IFileSystem(Task|int $cp = 1): FileSystem
+    {
+        if (self::$runtime === null) {
+            self::$runtime = new self;
+        }
+        $kernel = self::$runtime;
+        $task = $kernel->sci_get_task($cp);
+        if ($kernel->ko_filesystem === null) {
+            $kernel->ko_filesystem = new FileSystem($kernel, $task);
+        }
+        $kernel->ko_filesystem->assign_task($task);
+        return $kernel->ko_filesystem;
+    }
+
+    /**
+     * Fujin Security subsystem interface
+     *
+     * @return FSec
+     */
+    public static function IFSec(Task|int $cp = 1): FSec
+    {
+        if (self::$runtime === null) {
+            self::$runtime = new self;
+        }
+        $kernel = self::$runtime;
+        if ($kernel->ko_fsec === null) {
+            $kernel->ko_fsec = new FSec($kernel);
+        }
+        $task = $kernel->sci_get_task($cp);
+        $kernel->ko_fsec->assign_task($task);
+        return $kernel->ko_fsec;
+    }
+
+    /**
+     * IO interface
+     *
+     * @return IO
+     */
+    public static function IIO(Task|int $cp = 1): IO
+    {
+        if (self::$runtime === null) {
+            self::$runtime = new self;
+        }
+        $kernel = self::$runtime;
+        if ($kernel->ko_io === null) {
+            $kernel->ko_io = new IO($kernel);
+        }
+        $task = $kernel->sci_get_task($cp);
+        $kernel->ko_io->assign_task($task);
+        return $kernel->ko_io;
+    }
+
+    /**
+     * Mem interface
+     *
+     * @return Mem
+     */
+    public static function IMem(Task|int $cp = 1): Mem
+    {
+        if (self::$runtime === null) {
+            self::$runtime = new self;
+        }
+        $kernel = self::$runtime;
+        if ($kernel->ko_mem === null) {
+            $kernel->ko_mem = new Mem($kernel);
+        }
+        $task = $kernel->sci_get_task($cp);
+        $kernel->ko_mem->assign_task($task);
+        return $kernel->ko_mem;
+    }
+
+    /**
+     * JavaScriptVM interface
+     *
+     * @return JavaScriptVM
+     */
+    public static function IJavaScriptVM(Task|int $cp = 1): JavaScriptVM
+    {
+        if (self::$runtime === null) {
+            self::$runtime = new self;
+        }
+        $kernel = self::$runtime;
+        if ($kernel->ko_javascriptvm === null) {
+            $kernel->ko_javascriptvm = new JavaScriptVM($kernel);
+        }
+        $task = $kernel->sci_get_task($cp);
+        $kernel->ko_javascriptvm->assign_task($task);
+        return $kernel->ko_javascriptvm;
+    }
+
+    private function bootstrap(): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $root = dirname(__DIR__);
+        $path = dirname((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]');
+
+        if (!isset($_SESSION['fjx_booted'])) {
+            $_SESSION['fjx_ver'] = json_decode(file_get_contents($root . '/etc/ver.fjconf'));
+            $_SESSION['fjx_envpath'] = json_decode(file_get_contents($root . '/etc/environment.fjconf'))->path;
+            $_SESSION['fjx_booted'] = true;
+        }
+
+        $conf = $_SESSION['fjx_ver'];
+
+        define('FUJIN_ROOT', $root);
+        define('FUJIN_PATH', $path);
+
+        $language = 'cs_CZ';
+
+        if (isset($_SESSION['FJACC_SETTINGS']['USERNAME'])) {
+            define('HOME', '/home/' . $_SESSION['FJACC_SETTINGS']['USERNAME']);
+            if (is_file(FUJIN_ROOT . HOME . '/etc/dash.fjconf')) {
+                $language = json_decode(file_get_contents(FUJIN_ROOT . HOME . '/etc/dash.fjconf'))->lang;
+            }
+            define('USER', $_SESSION['FJACC_SETTINGS']['USERNAME']);
+            define('FULLNAME', $_SESSION['FJACC_SETTINGS']['NAME'] . ' ' . $_SESSION['FJACC_SETTINGS']['SURNAME']);
+            define('FIRSTNAME', $_SESSION['FJACC_SETTINGS']['NAME']);
+        } else {
+            define('HOME', '/home/guest');
+            define('USER', 'guest');
+            define('FULLNAME', 'Guest');
+            define('FIRSTNAME', 'Guest');
+        }
+
+        define('LANGUAGE', $language);
+        define('VER', $conf->uname . ' ' . $conf->ver_major . '.' . $conf->ver_minor . ' ' . $conf->ver_codename);
+        define('CORE_VERSION', $conf->ver_major . '.' . $conf->ver_minor);
+
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // On Windows, these constants have to be set manually
+            define('SIGTERM', 15);
+        }
+    }
+}
