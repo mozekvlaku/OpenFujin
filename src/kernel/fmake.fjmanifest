@@ -84,6 +84,96 @@
             "type": "kernelmodel",
             "minify": true,
             "binary": true
+        },
+        {
+            "destination": "/kernel/io",
+            "sources": [
+                "/src/basic_objects/inputoutput"
+            ],
+            "mode": "fsource",
+            "type": "kernelobj",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/mem",
+            "sources": [
+                "/src/basic_objects/memory"
+            ],
+            "mode": "fsource",
+            "type": "kernelobj",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/javascriptvm",
+            "sources": [
+                "/src/basic_objects/scripting"
+            ],
+            "mode": "fsource",
+            "type": "kernelobj",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/fsec",
+            "sources": [
+                "/src/basic_objects/security"
+            ],
+            "mode": "fsource",
+            "type": "kernelobj",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/scheduler",
+            "sources": [
+                "/src/basic_objects/scheduler"
+            ],
+            "mode": "fsource",
+            "type": "kernelobj",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/obj/endpointenum",
+            "sources": [
+                "/src/models/endpoint.enum"
+            ],
+            "mode": "fsource",
+            "type": "kernelmodel",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/obj/executable",
+            "sources": [
+                "/src/models/executable"
+            ],
+            "mode": "fsource",
+            "type": "kernelmodel",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/obj/kernelobject",
+            "sources": [
+                "/src/models/kernelobject"
+            ],
+            "mode": "fsource",
+            "type": "kernelmodel",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/kernel/obj/task",
+            "sources": [
+                "/src/models/task"
+            ],
+            "mode": "fsource",
+            "type": "kernelmodel",
+            "minify": true,
+            "binary": true
         }
         
     ],

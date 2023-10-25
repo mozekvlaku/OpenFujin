@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright 2023 Ing. Tomas Kracik (Vespotok)
  * 
@@ -15,18 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  * 
- * @package     FujinMake
+ * Copyright (c) 2022 Vespotok veDev
+ * 
+ * @package     Kernel
+ * @subpackage  Objects
  * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
  */
 
-namespace Fujin\DevTools;
+namespace Fujin\Kernel\Obj;
 
-interface ICompiler
-{
-    public function prepare_sources(array $sources) : array;
-    public function load_sources(array $paths, callable $log = null) : array;
-    public function minify_sources(array $sources) : array;
-    public function make_binary(string $source, CompilationTarget $type) : string;
-    public function compile(array $sources): string;
-    public function save_sources(string $sources, string $destination, string $type) : bool;
+enum EndpointEnum {
+    case GUIEndpoint;
+    case WebConsoleEndpoint;
+    case APIEndpoint;
+    case RemoteEndpoint;
+    case FocusEndpoint;
+    case FileEndpoint;
+    case JavascriptEndpoint;
+    case DWMEndpoint;
+    case PromptEndpoint;
+    case UploadEndpoint;
 }

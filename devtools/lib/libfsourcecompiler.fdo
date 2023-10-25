@@ -56,9 +56,51 @@ class LibFsourceCompiler implements ICompiler {
         }
         return $sources;
     }
-    public function make_binary(string $source): string {
+    public function make_binary(string $source, CompilationTarget $target): string {
+        $__magic = "\0FEF\0";
+        $__sys = EHSys::EH_SYS_OPEN_FUJIN->value;
+        switch($target) {
+            case CompilationTarget::CONSOLE_APPLICATION:
+                $__type = EHType::EH_TYPE_CONSOLE_APPLICATION;
+                break;
+            case CompilationTarget::GATEWAY_APPLICATION:
+                $__type = EHType::EH_TYPE_GATEWAY_APPLICATION;
+                break;
+            case CompilationTarget::GRAPHICAL_APPLICATION:
+                $__type = EHType::EH_TYPE_GRAPHICAL_APPLICATION;
+                break;
+            case CompilationTarget::GRAPHICAL_BUNDLE:
+                $__type = EHType::EH_TYPE_GRAPHICAL_BUNDLE;
+                break;
+            case CompilationTarget::DYNAMIC_OBJECT:
+                $__type = EHType::EH_TYPE_DYNAMIC_OBJECT;
+                break;
+            case CompilationTarget::KERNEL_OBJECT:
+                $__type = EHType::EH_TYPE_KERNEL_OBJECT;
+                break;
+            case CompilationTarget::KERNEL_MODEL:
+                $__type = EHType::EH_TYPE_KERNEL_MODEL;
+                break;
+            case CompilationTarget::KERNEL_STRUCTURE:
+                $__type = EHType::EH_TYPE_KERNEL_STRUCTURE;
+                break;
+            case CompilationTarget::OBJECT_MODEL:
+                $__type = EHType::EH_TYPE_OBJECT_MODEL;
+                break;
+            case CompilationTarget::UNDEFINED:
+            case CompilationTarget::HTML_FILE:
+            case CompilationTarget::INI_CONFIGURATION:
+            case CompilationTarget::FUJIN_MANIFEST:
+            case CompilationTarget::FUJIN_CONFIGURATION:
+            case CompilationTarget::KERNEL_SELF:
+                // Cannot binarize kernel
+                return $source;
+                break;
+        }
+        $__offset = 0x00 . 0x00 . 0x00 . 0x00 . 0x00 . 0x00 . 0x00 . 0x00 . 0x00 . 0x00;
+        $__code  = gzcompress($source);
         $this->is_binary = true;
-        return gzcompress($source);
+        return $__magic. $__sys;// . $__type->value . $__offset . $__code;
     }
     public function compile(array $sources): string {
         return implode("", $sources);
@@ -73,6 +115,8 @@ class LibFsourceCompiler implements ICompiler {
 
     public function minify_sources(array $sources): array
     {
+        // Minification is broken and not really needed now
+        return $sources;
         $sources_minified = [];
         foreach($sources as $source)
         {

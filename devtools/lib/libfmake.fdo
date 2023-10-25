@@ -95,7 +95,7 @@ class LibFmake extends FujinDynamicObject {
             $this->log('Compiling');
             $source = $compiler->compile($sources);
             if($target->binary)
-            $source = $compiler->make_binary($source);
+            $source = $compiler->make_binary($source, CompilationTarget::from($target->type));
             $file_ext = '';
             switch (CompilationTarget::from($target->type))
             {

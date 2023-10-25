@@ -21,12 +21,15 @@
 
 namespace Fujin\DevTools;
 
-interface ICompiler
+enum EHType: int
 {
-    public function prepare_sources(array $sources) : array;
-    public function load_sources(array $paths, callable $log = null) : array;
-    public function minify_sources(array $sources) : array;
-    public function make_binary(string $source, CompilationTarget $type) : string;
-    public function compile(array $sources): string;
-    public function save_sources(string $sources, string $destination, string $type) : bool;
+    case EH_TYPE_CONSOLE_APPLICATION   = 0x00;
+    case EH_TYPE_GRAPHICAL_APPLICATION = 0x01;
+    case EH_TYPE_GRAPHICAL_BUNDLE      = 0x02;
+    case EH_TYPE_DYNAMIC_OBJECT        = 0x03;
+    case EH_TYPE_KERNEL_OBJECT         = 0x04;
+    case EH_TYPE_KERNEL_MODEL          = 0x05;
+    case EH_TYPE_KERNEL_STRUCTURE      = 0x06;
+    case EH_TYPE_GATEWAY_APPLICATION   = 0x07;
+    case EH_TYPE_OBJECT_MODEL          = 0x08;
 }
