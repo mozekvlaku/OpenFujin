@@ -23,14 +23,14 @@ class fjsysd extends Executable
 {
     // Default init executables
     private const DEFAULT_GETTY     = "/bin/sh";
-    private const DEFAULT_GUI       = "/usr/share/raijin/raijin.appf";
-    private const DEFAULT_GUIAUTH   = "/usr/share/auth.appf";
-    private const DEFAULT_APISHELL  = "/bin/apish";
+    private const DEFAULT_GUI       = "/bin/sh";
+    private const DEFAULT_GUIAUTH   = "/bin/sh";
+    private const DEFAULT_APISHELL  = "/bin/sh";
 
     // TTYs and GUIs
     private const NUM_OF_TTYS = 3;
-    private const NUM_OF_GDIS = 1;
-    private const NUM_OF_APIS = 1;
+    private const NUM_OF_GDIS = 0;
+    private const NUM_OF_APIS = 0;
     private const TTY = "tty";
     private const GDI = "jsd";
     private const STD = "stdout";
@@ -96,7 +96,7 @@ class fjsysd extends Executable
                 $gdi_session = $kernel->sci_task_exists($this->user_gui, self::GDI . $i);
                 if ($gdi_session == false) {
                     $gdi_session = $kernel->sci_start_process($this->user_gui, $this->me, USER, self::GDI . $i);
-                    $kernel->sci_invoke_process($gdi_session, "wallpaper");
+                    $kernel->sci_invoke_process($gdi_session, "wallpaper");                    
                     $kernel->sci_set_task($gdi_session, static::GDI . $i);
                     $io->println(static::OK . " Init done on /dev/" . static::GDI . $i);
                 }

@@ -1,0 +1,114 @@
+{
+    "name": "framework",
+    "version": "3.2.0",
+    "author": {
+        "name": "Tomáš Kracík",
+        "email": "kracik@vespotok.net",
+        "url": ""
+    },
+    "licence": "Apache-2.0",
+    "context": {
+        "version": ">3.2.0",
+        "distros": [
+            "openfujin",
+            "*"
+        ]
+    },
+    "targets": [
+        {
+            "destination": "/lib/framework/kernel/application",
+            "sources": [
+                "/src/kernel/application"
+            ],
+            "mode": "fsource",
+            "type": "object",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/lib/framework/kernel/cgiapplication",
+            "sources": [
+                "/src/kernel/cgiapplication"
+            ],
+            "mode": "fsource",
+            "type": "object",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/lib/framework/kernel/consoleapplication",
+            "sources": [
+                "/src/kernel/consoleapplication"
+            ],
+            "mode": "fsource",
+            "type": "object",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/lib/framework/helper/kernel/registry",
+            "sources": [
+                "/src/helper/kernel/registry"
+            ],
+            "mode": "fsource",
+            "type": "dynamicobject",
+            "minify": true,
+            "binary": true
+        },{
+            "destination": "/lib/framework/helper/kernel/logging",
+            "sources": [
+                "/src/helper/kernel/logging"
+            ],
+            "mode": "fsource",
+            "type": "dynamicobject",
+            "minify": true,
+            "binary": true
+        },{
+            "destination": "/lib/framework/helper/i18n/strings",
+            "sources": [
+                "/src/helper/i18n/strings"
+            ],
+            "mode": "fsource",
+            "type": "dynamicobject",
+            "minify": true,
+            "binary": true
+        },{
+            "destination": "/lib/framework/helper/filesystem/configmanager",
+            "sources": [
+                "/src/helper/filesystem/configmanager"
+            ],
+            "mode": "fsource",
+            "type": "dynamicobject",
+            "minify": true,
+            "binary": true
+        },{
+            "destination": "/lib/framework/helper/filesystem/manifestreader",
+            "sources": [
+                "/src/helper/filesystem/manifestreader"
+            ],
+            "mode": "fsource",
+            "type": "dynamicobject",
+            "minify": true,
+            "binary": true
+        },{
+            "destination": "/lib/framework/helper/datasource/persistence",
+            "sources": [
+                "/src/helper/datasource/persistence"
+            ],
+            "mode": "fsource",
+            "type": "dynamicobject",
+            "minify": true,
+            "binary": true
+        },{
+            "destination": "/lib/framework/helper/datasource/databaseconnection",
+            "sources": [
+                "/src/helper/datasource/databaseconnection"
+            ],
+            "mode": "fsource",
+            "type": "dynamicobject",
+            "minify": true,
+            "binary": true
+        }
+    ],
+    "make": "dist"
+}

@@ -1,0 +1,511 @@
+<?php
+
+/**
+ * Fujin AppFramework Application Frame
+ * 
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinFramework
+ * @subpackage  Kernel
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+namespace Fujin\Framework\Kernel;
+
+use Fujin\Kernel\FileSystem;
+use Fujin\Kernel\Fujin;
+use Fujin\Kernel\IO;
+use Fujin\Kernel\JavaScriptVM;
+use Fujin\Kernel\Mem;
+use Fujin\Kernel\Obj\Executable;
+use Fujin\Kernel\Obj\Task;
+
+class Application extends Executable
+{
+    const APP_NAME          = "Application";
+    const APP_ICON_GROUP    = "mimes";
+    const APP_ICON          = "text-x-php";
+    const APP_TYPE          = "unknown";
+    const APP_MENUBAR_DIR   = "/etc/shell/";
+    const APP_MENUBAR_FILE  = "default";
+
+    const APP_NAMES         = null;
+
+    public $pid;
+    protected $killable = true;
+    protected $title;
+    protected $language_titles;
+    protected $menubar_dir;
+    protected $menubar_file;
+    protected $icon;
+    protected $type;
+    protected $args;
+
+    protected $argumentArray;
+    protected Fujin $kernel;
+    protected $invoke_hooks;
+
+    
+
+    /**
+     * Standardized construct, APP SHOULD BE CONSTRUCTED ONLY
+     * BY KERNEL!
+     * 
+     * 
+     */
+    protected function construct_invoke(): void
+    {
+        $this->pid = $this->me->__task_pid;
+        $this->invoke_hooks = array();
+        $this->invoke_actions();
+        $this->kernel = Fujin::c();
+        // Setting metadata of app
+        $this->set_icon_icnmaster(static::APP_ICON_GROUP, static::APP_ICON);
+        $this->set_title(static::APP_NAME);
+        $this->set_menubar(static::APP_MENUBAR_DIR, static::APP_MENUBAR_FILE);
+        $this->set_type(static::APP_TYPE);
+
+        if(static::APP_NAMES != null)
+        {
+            $this->set_language_titles(static::APP_NAMES);
+        }
+    }
+
+    /**
+     * 
+     * Handle function -> this function is called by the kernel
+     * @param string $args - arguments, or syscall from user or kernel
+     *  
+     */
+    public function handle(string $args) : void
+    {
+        $this->args = $args;
+
+        if($args != "")
+            $this->argumentArray = $this->_getopt($args);
+
+        $this->function_dispatcher($this->argumentArray);
+
+        foreach($this->invoke_hooks as $hook)
+        {
+            $hook();
+        }
+
+        
+
+        if (isset($this->argumentArray["m"])) {
+            if (in_array("system", $this->argumentArray["m"])) {
+                // System Call to start an app
+                $payload = substr($this->args,7);
+                // Check if running in GUI
+                if($_SESSION['fjx_currentDisplay'] == "jsd0")
+                {
+                    // Running in GUI, calling guish
+                    $this->kernel->IJavaScriptVM($this->me)->add_script_force("GUIShellBroker","dwmOpen('$payload');", 7);
+                }
+                else
+                {
+                    // Running in CLI or CGI, calling process 2
+                    $this->kernel->sci_invoke_process(2, $payload);
+                }
+            }
+            if(in_array("exit",$this->argumentArray["m"]))
+            {
+                if($this->killable)
+                {
+                    $this->sys_exit(130);
+                }
+                else
+                {
+                    $this->kernel::IIO($this->me)->std_err("Tried to kill unkillable app!");
+                }
+            }
+        }
+    }
+    public function save_state_variable(string $identifier, $data): void
+    {
+        $_SESSION["fjx_registry"][$this->pid][$identifier] = $data;
+    }
+
+    public function get_state_variable(string $identifier)
+    {
+        return $_SESSION["fjx_registry"][$this->pid][$identifier];
+    }
+    /**
+     * 
+     * Exit application
+     * 
+     * Valid exit codes are
+     *  
+     *  0 - App ended itself successfully
+     *  1 - General Error
+     *  2 - Misuse of shell builtins
+     *  130 - User initiated exit
+     *   
+     * @param int       $exit_code - provide exit code, now does nothing, probably will
+     *                               do something in future #futureproof
+     * @param callable  $_cleaning_script - this will fire on end 
+     * @return bool     $state - state of closing. 99.9% returns true, only if system daemon
+     *                           is based on framework and tries to end it's suffering returns
+     *                           false
+     * 
+     */
+    protected function sys_exit(int $exit_code, callable $_cleaning_script = null) : bool
+    {
+        $parent_process = $this->me->get_parent();
+        $display = $this->me->get_display();
+        /** Before closing, do cleaning function */
+        if($_cleaning_script != null)
+            $_cleaning_script();
+       
+
+        /** GC the javascript */
+            $this->kernel->IJavaScriptVM($this->me)->garbage_collect($this->pid);
+
+        /** Now fire the basic exit function */
+        $this->sys_exit_before();
+
+        /** GC the registry (Fujin 3.1) and memory (Fujin 3.2) */
+        unset($_SESSION["fjx_registry"][$this->pid]);
+        $this->__mem()->mem_r_flush($this->pid);
+       
+        /** Now, finally, we can kill ourselves */
+        if($this->kernel->sci_end_process($this->pid, SIGTERM) === true)
+        {
+            /** And hand over power to the parent process */
+            $this->kernel->sci_set_task($parent_process,$display);
+            //$this->kernel->sci_invoke_process($parent_process);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 
+     * Splits standard POSIX cli arguments and internal syscalls into
+     * a neat array
+     * 
+     * @param string $args - those beautiful arguments
+     * @return array $arguments array
+     * 
+     */
+    private function _getopt(string $args) : array
+    {
+        /** Split arguments and analyze */
+        $argArray = preg_split('~(?<!\\\\)(?:\\\\{2})*"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"(*SKIP)(*F)|\s+~s', $args);
+
+        /** Prepare argument arrays */
+        $switches = array();
+        $functions = array();
+        $misc = array();
+
+        /** Scan array for switches and arguments */
+        foreach ($argArray as $command_pellet) {
+            if ($command_pellet[0] == "-") {
+                /** Found a switch! */
+                if (strpos($command_pellet, "=") !== false) {
+                    /** Found a path or argument! */
+                    $switchArr = explode("=", $command_pellet);
+                    $switchName = $switchArr[0];
+                    $switchValue = $switchArr[1];
+                    /** Path enclosed in quotations */
+                    if($switchValue[0] == '"' && substr($switchValue, -1) == '"')
+                    {
+                        $switchValue = trim($switchValue, '"');
+                    }
+                }
+                else
+                {
+                    $switchName = $command_pellet;
+                    $switchValue = true;
+                }
+                /** Push switch to an array */
+                $switches[$switchName] = $switchValue;
+                continue;
+            }
+
+            if(strpos($command_pellet, "(") !== false)
+            {
+                /** Found an internal function! */
+                $functionArr = explode("(", $command_pellet);
+                $functionName = $functionArr[0];
+                if($functionArr[1] != ")")
+                {
+                    /** Has arguments */
+                    $functionValues = str_getcsv(rtrim($functionArr[1], ")"), ",", '"');
+                }
+                else
+                {
+                    $functionValues = true;
+                }
+                $functions[$functionName]=$functionValues;
+                continue;
+            }
+
+            /** Not switch, not function, maybe just a simple message */
+            array_push($misc, explode(" ", $command_pellet)[0]);
+        }
+        $argsArray = array("s"=>$switches, "f"=>$functions, "m"=>$misc);
+        return $argsArray;
+    }
+
+    /**
+     * 
+     * Check if switch exists, if it does, calls function
+     * 
+     * @param string $switch - basic POSIX switch
+     * @param callable $function - calls if switch provided, gives back switch data
+     * 
+     */
+    public final function ch(string $switch, callable $function) : void
+    {
+        if(isset($this->argumentArray["s"]))
+        {
+            if (array_key_exists($switch, $this->argumentArray["s"])) $function($this->argumentArray["s"][$switch]);
+        }
+    }
+
+    /**
+     * 
+     * Check if switch exists, if it does, calls function
+     * 
+     * @param string $function_name - passed function name
+     * @param callable $function - calls if switch provided, gives back switch data
+     * 
+     */
+    public final function fn(string $function_name, callable $function): void
+    {
+        if (isset($this->argumentArray["f"])) {
+            if (array_key_exists($function_name, $this->argumentArray["f"])) call_user_func_array($function,$this->argumentArray["f"][$function_name]);
+        }
+    }
+
+    /**
+     * 
+     * Check if misc exists, if it does, calls function
+     * 
+     * @param string $misc_name - passed misc name
+     * @param callable $function - calls if switch provided, gives back switch data
+     * 
+     */
+    public final function ms(string $misc_name, callable $function): void
+    {
+        if (isset($this->argumentArray["m"])) {
+            if (in_array($misc_name, $this->argumentArray["m"])) call_user_func_array($function, array(1));
+        }
+    }
+
+    /**
+     * 
+     * Check if functions are present. Use this to simplify hooks
+     * 
+     * @param callable $function - calls if switch provided, gives back switch data
+     * 
+     */
+    public final function fn_exist(callable $function): void
+    {
+        if(isset($this->argumentArray["f"]))
+        {
+            if (count($this->argumentArray["f"]) > 0) {
+                $function();
+            }
+        }
+    }
+
+    /**
+     * 
+     * Check if miscelaneous are present. Use this to simplify hooks
+     * 
+     * @param callable $function - calls if switch provided, gives back switch data
+     * 
+     */
+    public final function ms_exist(callable $function): void
+    {
+        if (isset($this->argumentArray["m"])) {
+            if (count($this->argumentArray["m"]) > 0) {
+                $function($this->argumentArray["m"]);
+            }
+        }
+    }
+
+    /**
+     * 
+     * Check if no args provided, calls function
+     * 
+     * @param callable $function - calls if switch provided, gives back switch data
+     * 
+     */
+    public final function df(callable $function): void
+    {
+        if($this->args == "") $function();
+    }
+
+    /**
+     * 
+     * Set the icon of your app
+     * ...wont help it, still fugly
+     * 
+     * @param string $path - Path to your fugly icon
+     * 
+     */
+    public function set_icon(string $path) : void
+    {
+        $this->icon = $path;
+        $this->update_title();
+    }
+
+    public final function get_me() : Task
+    {
+        return $this->me;
+    }
+
+    /**
+     * 
+     * Set the icon of your using icnmaster
+     * 
+     * @param string $namespace - the icon category
+     * @param string $icon_name - name of the icon
+     * 
+     */
+    public function set_icon_icnmaster(string $namespace, string $icon_name): void
+    {
+        // TODO: make this work again when gui available
+        //$iconmaster = new \Fujin\Framework\Helper\Customization\icnmaster();
+        //$this->icon = $iconmaster->getIcon($namespace, $icon_name);
+        //$this->update_title();
+    }
+
+    /**
+     * 
+     * Set the name of your app
+     * 
+     * @param string $title - Name of your app
+     * 
+     */
+    public function set_title(string $title) : void
+    {
+        $this->title = $title;
+        $this->update_title();
+    }
+
+
+    /**
+     * 
+     * Set the language translations of name of your app
+     * 
+     * @param array $title - Name of your app
+     * 
+     */
+    public function set_language_titles(array|null $language_titles): void
+    {
+        $this->language_titles = $language_titles;
+        $this->update_title();
+    }
+
+    /**
+     * 
+     * Set the menubar manifest
+     * 
+     * @param string $title - Name of your app
+     * 
+     */
+    public function set_menubar(string $menubar_dir, string $menubar_file): void
+    {
+        $this->menubar_dir = $menubar_dir;
+        $this->menubar_file = $menubar_file;
+        $this->update_title();
+    }
+
+    /**
+     * 
+     * Set the type of your app
+     * 
+     * @param string $type - Type of your app
+     * 
+     */
+    public function set_type(string $type): void
+    {
+        $this->type = $type;
+        $this->update_title();
+    }
+
+    /**
+     * 
+     * Updates with kernel
+     * 
+     */
+    protected function update_title() : void
+    {
+        $this->me->set_meta(array(
+                "name" => $this->title,
+                "icon" => $this->icon,
+                "type" => $this->type,
+                "menubar" => array(
+                    "file" => $this->menubar_file,
+                    "dir" => $this->menubar_dir
+                ),
+                "name_languages" => $this->language_titles
+            )
+        );
+        $this->kernel->ko_scheduler->save_task_state($this->me);  
+    }
+
+    /** Add start hook */
+    public function add_invoke_hook(string $hook_function_name) : void
+    {
+        array_push($this->invoke_hooks, $hook_function_name);
+    }
+
+
+    /** Standardized kernel */
+    protected function __mem() : Mem
+    {
+        return $this->kernel->IMem($this->me);
+    }
+    protected function __js(): JavaScriptVM
+    {
+        return $this->kernel->IJavaScriptVM($this->me);
+    }
+    protected function __io(): IO
+    {
+        return $this->kernel->IIO($this->me);
+    }
+    protected function __fs(): FileSystem
+    {
+        return $this->kernel->IFileSystem($this->me);
+    }
+
+    /**
+     * Overwrite these functions., do it.
+     * 
+     * These are going to be fired by Application
+     */
+
+    protected function function_dispatcher($args) : void
+    {
+
+    }
+
+    protected function invoke_actions() : void
+    {
+
+    }
+
+    protected function sys_exit_before() : void
+    {
+
+    }
+}
+?>

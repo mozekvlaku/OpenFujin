@@ -1,0 +1,9 @@
+{
+    "uname": "OpenFujin",
+    "ver_major": "3",
+    "distro": "core",
+    "ver_minor": "2.0",
+    "ver_suffix": "alpha",
+    "ver_codename": "OpenFujin Gujeolpan",
+    "host": "fujin"
+}

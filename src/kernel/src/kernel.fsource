@@ -69,6 +69,13 @@ class Fujin
         if (!isset($this->ko_scheduler) || $this->ko_scheduler == null) {
             $this->ko_scheduler = new Scheduler($this);
         }
+
+        // Create Memory
+        if (!isset($this->ko_mem) || $this->ko_mem == null) {
+            $this->ko_mem = new Mem($this);
+        }
+        // Load memory stuff
+        $this->load_memory();
     }
 
     /**
@@ -366,13 +373,7 @@ class Fujin
         $root = dirname(__DIR__);
         $path = dirname((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]');
 
-        if (!isset($_SESSION['fjx_booted'])) {
-            $_SESSION['fjx_ver'] = json_decode(file_get_contents($root . '/etc/ver.fjconf'));
-            $_SESSION['fjx_envpath'] = json_decode(file_get_contents($root . '/etc/environment.fjconf'))->path;
-            $_SESSION['fjx_booted'] = true;
-        }
-
-        $conf = $_SESSION['fjx_ver'];
+        $conf = json_decode(file_get_contents($root . '/etc/ver.fjconf'));
 
         define('FUJIN_ROOT', $root);
         define('FUJIN_PATH', $path);
@@ -401,6 +402,14 @@ class Fujin
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
             // On Windows, these constants have to be set manually
             define('SIGTERM', 15);
+        }
+    }
+
+    private function load_memory():void {
+        if (!$this->ko_mem->mem_k_get('booted')) {
+            $this->ko_mem->mem_k_add('booted', true);
+            $this->ko_mem->mem_k_add('envpath', json_decode(file_get_contents(FUJIN_ROOT . '/etc/environment.fjconf'))->path);
+            $this->ko_mem->mem_k_add('ver', json_decode(file_get_contents(FUJIN_ROOT . '/etc/ver.fjconf')));
         }
     }
 }

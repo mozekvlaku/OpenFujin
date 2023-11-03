@@ -1,0 +1,97 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinFramework
+ * @subpackage  Helpers
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+namespace Fujin\Framework\Helper\i18n;
+
+class Strings
+{
+    private string $directory;
+    private string $domain;
+    /**
+     * Set working environment for _(), or gettext()
+     * 
+     * Directory structure must look like this:
+     * /some_fujin_path/locale/ns_FE/LC_MESSAGES/main.mo
+     * 
+     * @param string $root_of_project - path, where you have the needed dir structure /root/locale
+     * @param string $domain - file, where you have saved t he strings, is "main(.mo)" by default
+     */
+    public function __construct(string $root_of_project, string $domain = "main")
+    {
+        $this->directory = FUJIN_ROOT . trim($root_of_project) . "locale" ;
+        $locale = LANGUAGE;
+        $this->domain = $domain;
+        $results = putenv("LC_ALL=$locale");
+        if (!$results) {
+            echo('putenv failed');
+        }
+        $results = setlocale(LC_ALL, $locale);
+        if (!$results) {
+            echo('setlocale failed: locale function is not available on this platform, or the given local does not exist in this environment');
+        }
+        putenv("LANG=".$locale);
+        bindtextdomain($domain, $this->directory);
+        textdomain($domain);
+        //bind_textdomain_codeset($domain, 'UTF-8');
+    }
+
+    /**
+     * Directly translate from .po file
+     */
+    public function _(string $string) : string
+    {
+        $translation_file = $this-> directory  . DIRECTORY_SEPARATOR . LANGUAGE . DIRECTORY_SEPARATOR . "LC_MESSAGES". DIRECTORY_SEPARATOR . $this->domain .".po";
+
+        if (file_exists("$translation_file")) {
+            $IDIOMA_CONTENT = file("$translation_file");
+            $num_lineas = count($IDIOMA_CONTENT);
+        } else {
+            return $string;
+        }
+
+        for ($i = 0; $i <= $num_lineas; $i++) {
+            $linea1 = $IDIOMA_CONTENT[$i];
+            $linea1 = rtrim($linea1);
+            $string6 = substr($linea1, 0, 6);
+
+            if ($string6 == "msgid ") {
+                $orig = str_replace($string6, "", $linea1);
+                $orig = str_replace("\"", "", $orig);
+
+                if ("$orig" == "$string") {
+                    $linea2 = $IDIOMA_CONTENT[$i + 1];
+                    $linea2 = rtrim($linea2);
+                    $string7 = substr($linea2, 0, 7);
+
+                    if ($string7 == "msgstr ") {
+                        $trad = str_replace($string7, "", $linea2);
+                        $trad = str_replace("\"", "", $trad);
+                        return ("$trad");
+                    }
+                } else {
+                    $i = $i + 3;
+                }
+            }
+        }
+
+        return ("$string");
+    }
+}

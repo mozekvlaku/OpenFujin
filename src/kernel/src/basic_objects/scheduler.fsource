@@ -64,16 +64,6 @@ class Scheduler extends KernelObject
     private const BACKGROUND_PID_END = 999;
 
     /**
-     * Task list with data.
-     */
-    private array $tasks;
-
-    /**
-     * Task list shadow.
-     */
-    private array $tasks_shadow;
-
-    /**
      * Current task.
      */
     private int $current_task;
@@ -95,21 +85,10 @@ class Scheduler extends KernelObject
     {
         $this->kernel = $kernel;
 
-        if (!isset($_SESSION["fjx_tasks"])) {
-            $_SESSION["fjx_tasks"] = array();
-        }
-        if (!isset($_SESSION["fjx_tasks_shadow"])) {
-            $_SESSION["fjx_tasks_shadow"] = array();
-        }
-        if (!isset($_SESSION["fjx_currentTask"])) {
-            $_SESSION["fjx_currentTask"] = array("stdout" => 1);
-        }
-        if (!isset($_SESSION["fjx_currentDisplay"])) {
-            $_SESSION["fjx_currentDisplay"] = "stdout";
-        }
-
-        $this->tasks = &$_SESSION["fjx_tasks"];
-        $this->tasks_shadow = &$_SESSION["fjx_tasks_shadow"];
+        $tasks = $this->scheduler_get('tasks', []);
+        $tasks_shadow = $this->scheduler_get('tasks_shadow', []);
+        $current_task = $this->scheduler_get('currentTask', ["stdout" => 1]);
+        $current_display = $this->scheduler_get('currentDisplay', "stdout");
 
         if (!isset($this->tasks[self::INIT_PID]) || !isset($this->tasks_shadow[self::INIT_PID])) {
             $init = new Task("/bin/fjsysd", "-i", 0, "root");
@@ -134,7 +113,7 @@ class Scheduler extends KernelObject
         if (!isset($this->current_task))
             $this->current_task = 1;
 
-        if (!array_key_exists($this->current_task, $this->tasks))
+        if (!array_key_exists($this->current_task, $this->scheduler_get('tasks', [])))
             $this->current_task = 1;
     }
 
@@ -149,7 +128,7 @@ class Scheduler extends KernelObject
     {
         // If the task is null, invoke the current task (mostly bad practice)
         if ($task == null) {
-            if (key_exists($this->current_task, $this->tasks)) {
+            if (key_exists($this->current_task, $this->scheduler_get('tasks', []))) {
                 $task = $this->get_task($this->current_task);
             } else {
                 $task = $this->get_task(1);
@@ -157,7 +136,7 @@ class Scheduler extends KernelObject
         }
 
         // Check the validity of the called task
-        if (!key_exists($task->__task_pid, $this->tasks)) {
+        if (!key_exists($task->__task_pid, $this->scheduler_get('tasks', []))) {
             throw new Exception("This task does not exist!");
         }
 
@@ -165,6 +144,7 @@ class Scheduler extends KernelObject
         if ($args == null) {
             $args = $task->get_args();
         }
+
 
         // Invocation process
         $exec_path = FUJIN_ROOT . $task->get_command();
@@ -192,9 +172,9 @@ class Scheduler extends KernelObject
     {
         $pid = $this->generate_new_pid($task->get_type());
         $result = $task->set_pid($pid);
-        $this->tasks[$pid] = $task->__serialize();
-        $this->tasks_shadow[$pid] = serialize($task);
-        $_SESSION['fjx_currentTask'][$task->get_display()] = $task->__task_pid;
+        $this->scheduler_save('tasks.'.$pid, $task->__serialize());
+        $this->scheduler_save('tasks_shadow.' . $pid, serialize($task));
+        $this->scheduler_save('currentTask.' . $task->get_display(), $task->__task_pid);
         return $result;
     }
 
@@ -213,7 +193,7 @@ class Scheduler extends KernelObject
             unset($this->tasks_shadow[$task->__task_pid]);
             $parent = $this->get_task($callback);
             $parent->set_args("");
-            $_SESSION['fjx_currentTask'][$display] = $callback;
+            $this->scheduler_save('currentTask.'.$display, $callback);
             $this->save_task_state($parent);
             return true;
         } else {
@@ -229,8 +209,8 @@ class Scheduler extends KernelObject
     public function save_task_state(Task $task): void
     {
         $pid = $task->__task_pid;
-        $this->tasks[$pid] = $task->__serialize();
-        $this->tasks_shadow[$pid] = serialize($task);
+        $this->scheduler_save('tasks.' . $pid, $task->__serialize());
+        $this->scheduler_save('tasks_shadow.' . $pid, serialize($task));
     }
 
     /**
@@ -241,7 +221,7 @@ class Scheduler extends KernelObject
      */
     public function get_task(int $process_id): Task
     {
-        return unserialize($this->tasks_shadow[$process_id]);
+        return unserialize($this->scheduler_get('tasks_shadow.'.$process_id,[]));
     }
 
     /**
@@ -254,7 +234,7 @@ class Scheduler extends KernelObject
     public function get_task_by_bin(string $bin, string|null $display = null): Task|bool
     {
         $process_id = 0;
-        foreach ($this->tasks as $item) {
+        foreach ($this->scheduler_get('tasks', []) as $item) {
             if ($display == null) {
                 if ($item['bin'] == $bin) {
                     $process_id = $item['pid'];
@@ -267,7 +247,7 @@ class Scheduler extends KernelObject
         }
 
         if ($process_id != 0)
-            return unserialize($this->tasks_shadow[$process_id]);
+            return unserialize($this->scheduler_get('tasks_shadow.'.$process_id, []));
 
         return false;
     }
@@ -281,7 +261,7 @@ class Scheduler extends KernelObject
     private function generate_new_pid(int $type): int
     {
         $process_id_array = array();
-        foreach ($this->tasks as $item) {
+        foreach ($this->scheduler_get('tasks', [])  as $item) {
             $process_id_array[] = $item['pid'];
         }
 
@@ -325,12 +305,7 @@ class Scheduler extends KernelObject
      */
     private function extract_namespace(string $file): string
     {
-        if (isset($_SESSION["fjx_namespace_cache"])) {
-            $namespacecache = $_SESSION["fjx_namespace_cache"];
-        } else {
-            $namespacecache = array();
-            $_SESSION["fjx_namespace_cache"] = array();
-        }
+        $namespacecache = $this->scheduler_get('namespace_cache', []);
 
         if (isset($namespacecache[$file])) {
             return $namespacecache[$file];
@@ -350,8 +325,38 @@ class Scheduler extends KernelObject
             }
 
             $namespacecache[$file] = $ns;
-            $_SESSION["fjx_namespace_cache"] = $namespacecache;
+            $this->scheduler_save('namespace_cache', $namespacecache);
             return $ns;
         }
+    }
+
+    private function scheduler_save(string $identifier, mixed $data) : void {
+        if (php_sapi_name() === 'cli-server') {
+            file_put_contents(FUJIN_ROOT . '/tmp/' . $identifier, serialize($data));
+        }
+        $_SESSION["fjx_" . $identifier] = $data;
+    }
+
+    private function scheduler_get(string $identifier, mixed $if_null = '') : mixed
+    {
+        if (php_sapi_name() === 'cli-server') {
+            if (!is_dir(FUJIN_ROOT . '/tmp/')){
+                mkdir(FUJIN_ROOT . '/tmp/');
+            }
+
+            if (is_file(FUJIN_ROOT . '/tmp/'.$identifier)) {
+                return unserialize(file_get_contents(FUJIN_ROOT . '/tmp/' . $identifier));
+            }
+
+            file_put_contents(FUJIN_ROOT . '/tmp/' . $identifier, serialize($if_null));
+            return $if_null;
+        }
+
+        if (isset($_SESSION["fjx_" . $identifier])) {
+            return $_SESSION["fjx_" . $identifier];
+        }
+
+        $_SESSION["fjx_" . $identifier] = $if_null;
+        return $if_null;
     }
 }
