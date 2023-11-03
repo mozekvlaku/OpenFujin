@@ -23,6 +23,11 @@
 namespace Fujin\DevTools;
 
 use Fujin\FujinDynamicObject;
+use Fujin\DevTools\Compiler\CompilationException;
+use Fujin\DevTools\Compiler\CompilationMode;
+use Fujin\DevTools\Compiler\CompilationTarget;
+use Fujin\DevTools\Compiler\LibFsourceCompiler;
+
 
 class LibFmake extends FujinDynamicObject {
     const FDO_NAME                            = "FujinMakeCommonLib";

@@ -19,11 +19,10 @@
  * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
  */
 
-namespace Fujin\DevTools;
+namespace Fujin\DevTools\Compiler;
 
-enum CompilationMode {
-    case DEVELOPMENT;
-    case HOT_RELOAD;
-    case REPO_PRODUCTION;
-    case LOCAL_INSTALL;
+use Exception;
+
+class CompilationException extends Exception {
+    
 }

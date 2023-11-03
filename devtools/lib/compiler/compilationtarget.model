@@ -19,7 +19,7 @@
  * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
  */
 
-namespace Fujin\DevTools;
+namespace Fujin\DevTools\Compiler;
 
 enum CompilationTarget: string {
     case CONSOLE_APPLICATION   = 'util';

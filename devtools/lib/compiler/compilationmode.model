@@ -19,9 +19,11 @@
  * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
  */
 
-namespace Fujin\DevTools;
+namespace Fujin\DevTools\Compiler;
 
-enum EHSys: int
-{
-    case EH_SYS_OPEN_FUJIN = 0x00;
+enum CompilationMode {
+    case DEVELOPMENT;
+    case HOT_RELOAD;
+    case REPO_PRODUCTION;
+    case LOCAL_INSTALL;
 }

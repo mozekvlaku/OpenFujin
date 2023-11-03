@@ -1,0 +1,18 @@
+@@ LICENCE @@
+@@ AUTHOR @@
+
+namespace Fujin@@ NAMESPACE @@;
+
+use Fujin\FujinDynamicObject;
+
+class @@ NAME @@ extends FujinDynamicObject
+{
+    const FDO_NAME          = "@@ NAME @@";
+    const FDO_VERSION       = "@@ VER @@";
+
+    private bool $verbosity = false;
+
+    protected function init() : void {
+
+    }
+}

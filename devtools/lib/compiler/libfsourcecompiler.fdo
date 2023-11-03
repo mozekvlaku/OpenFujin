@@ -20,7 +20,7 @@
  * @author      Tomáš Kracík <kracik@vespotok.net>
  */
 
-namespace Fujin\DevTools;
+namespace Fujin\DevTools\Compiler;
 
 class LibFsourceCompiler implements ICompiler {
     private string $project_root    = "";
