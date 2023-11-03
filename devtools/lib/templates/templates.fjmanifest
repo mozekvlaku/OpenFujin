@@ -1,0 +1,12 @@
+{
+    "fdo": {
+        "licence": {
+            "default": "",
+            "required": false
+        },
+        "name": {
+            "default": "",
+            "required": true
+        }
+    }
+}
