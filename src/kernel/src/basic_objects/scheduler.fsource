@@ -62,15 +62,6 @@ class Scheduler extends KernelObject
     private const FOREGROUND_PID_END = 899;
     private const BACKGROUND_PID_START = 901;
     private const BACKGROUND_PID_END = 999;
-
-    /**
-     * Current task.
-     */
-    private int $current_task;
-
-    /**
-     * Core kernel names.
-     */
     private const INIT_NAME = "Init";
     private const INIT_ICON = FUJIN_PATH . "/usr/share/identity/favicon-32x32.png";
     private const KERNEL_NAME = "FujinKernel";
@@ -85,12 +76,11 @@ class Scheduler extends KernelObject
     {
         $this->kernel = $kernel;
 
-        $tasks = $this->scheduler_get('tasks', []);
-        $tasks_shadow = $this->scheduler_get('tasks_shadow', []);
-        $current_task = $this->scheduler_get('currentTask', ["stdout" => 1]);
-        $current_display = $this->scheduler_get('currentDisplay', "stdout");
+        $this->kernel->init_var([], 'tasks');
+        $this->kernel->init_var([], 'tasks_shadow');
+        $this->kernel->init_var('stdout', 'current_display');
 
-        if (!isset($this->tasks[self::INIT_PID]) || !isset($this->tasks_shadow[self::INIT_PID])) {
+        if (!$kernel->get_var('tasks', self::INIT_PID) || !$kernel->get_var('tasks_shadow', self::INIT_PID)) {
             $init = new Task("/bin/fjsysd", "-i", 0, "root");
             $init->set_name(self::INIT_NAME);
             $init->set_meta(array(
@@ -110,11 +100,11 @@ class Scheduler extends KernelObject
             $this->register_task($kernel);
         }
 
-        if (!isset($this->current_task))
-            $this->current_task = 1;
+        if (!$this->kernel->get_var('current_task'))
+            $this->kernel->put_var(1, 'current_task');
 
-        if (!array_key_exists($this->current_task, $this->scheduler_get('tasks', [])))
-            $this->current_task = 1;
+        //if (!array_key_exists($this->kernel->get_var('current_task'), $this->kernel->get_var('tasks')))
+        //    $this->kernel->put_var(1, 'current_task');
     }
 
     /**
@@ -126,25 +116,26 @@ class Scheduler extends KernelObject
      */
     public function invoke_process(Task|null $task = null, string $args = null): void
     {
+        //var_dump($this->kernel->get_var('tasks', (string)$this->kernel->get_var('current_task', $this->kernel->get_var('current_display'))));
+        //exit;
         // If the task is null, invoke the current task (mostly bad practice)
         if ($task == null) {
-            if (key_exists($this->current_task, $this->scheduler_get('tasks', []))) {
-                $task = $this->get_task($this->current_task);
+            if ($this->kernel->get_var('tasks', $this->kernel->get_var('current_task', $this->kernel->get_var('current_display')))) {
+                $task = $this->get_task($this->kernel->get_var('current_task', $this->kernel->get_var('current_display')));
             } else {
                 $task = $this->get_task(1);
             }
         }
 
         // Check the validity of the called task
-        if (!key_exists($task->__task_pid, $this->scheduler_get('tasks', []))) {
-            throw new Exception("This task does not exist!");
+        if (!key_exists($task->__task_pid, $this->kernel->get_var('tasks'))) {
+            throw new Exception("This task (". $task->__task_pid .") does not exist!");
         }
 
         // Check arguments/message sent
         if ($args == null) {
             $args = $task->get_args();
         }
-
 
         // Invocation process
         $exec_path = FUJIN_ROOT . $task->get_command();
@@ -172,9 +163,9 @@ class Scheduler extends KernelObject
     {
         $pid = $this->generate_new_pid($task->get_type());
         $result = $task->set_pid($pid);
-        $this->scheduler_save('tasks.'.$pid, $task->__serialize());
-        $this->scheduler_save('tasks_shadow.' . $pid, serialize($task));
-        $this->scheduler_save('currentTask.' . $task->get_display(), $task->__task_pid);
+        $this->kernel->put_var($task->__serialize(), 'tasks', $pid);
+        $this->kernel->put_var(serialize($task), 'tasks_shadow', $pid);
+        $this->kernel->put_var($task->__task_pid, 'current_task', $task->get_display());
         return $result;
     }
 
@@ -189,11 +180,11 @@ class Scheduler extends KernelObject
         if ($task->__task_pid != 1) {
             $callback = $task->get_parent();
             $display = $task->get_display();
-            unset($this->tasks[$task->__task_pid]);
-            unset($this->tasks_shadow[$task->__task_pid]);
+            $this->kernel->kill_var('tasks', $task->__task_pid);
+            $this->kernel->kill_var('tasks_shadow', $task->__task_pid);
             $parent = $this->get_task($callback);
-            $parent->set_args("");
-            $this->scheduler_save('currentTask.'.$display, $callback);
+            $parent->set_args('');
+            $this->kernel->put_var($callback, 'current_task', $display);
             $this->save_task_state($parent);
             return true;
         } else {
@@ -208,9 +199,8 @@ class Scheduler extends KernelObject
      */
     public function save_task_state(Task $task): void
     {
-        $pid = $task->__task_pid;
-        $this->scheduler_save('tasks.' . $pid, $task->__serialize());
-        $this->scheduler_save('tasks_shadow.' . $pid, serialize($task));
+        $this->kernel->put_var($task->__serialize(), 'tasks', $task->__task_pid);
+        $this->kernel->put_var(serialize($task), 'tasks_shadow', $task->__task_pid);
     }
 
     /**
@@ -221,7 +211,7 @@ class Scheduler extends KernelObject
      */
     public function get_task(int $process_id): Task
     {
-        return unserialize($this->scheduler_get('tasks_shadow.'.$process_id,[]));
+        return unserialize($this->kernel->get_var('tasks_shadow',$process_id));
     }
 
     /**
@@ -234,7 +224,7 @@ class Scheduler extends KernelObject
     public function get_task_by_bin(string $bin, string|null $display = null): Task|bool
     {
         $process_id = 0;
-        foreach ($this->scheduler_get('tasks', []) as $item) {
+        foreach ($this->kernel->get_var('tasks') as $item) {
             if ($display == null) {
                 if ($item['bin'] == $bin) {
                     $process_id = $item['pid'];
@@ -247,7 +237,7 @@ class Scheduler extends KernelObject
         }
 
         if ($process_id != 0)
-            return unserialize($this->scheduler_get('tasks_shadow.'.$process_id, []));
+            return $this->get_task($process_id);
 
         return false;
     }
@@ -261,7 +251,7 @@ class Scheduler extends KernelObject
     private function generate_new_pid(int $type): int
     {
         $process_id_array = array();
-        foreach ($this->scheduler_get('tasks', [])  as $item) {
+        foreach ($this->kernel->get_var('tasks') as $item) {
             $process_id_array[] = $item['pid'];
         }
 
@@ -305,11 +295,8 @@ class Scheduler extends KernelObject
      */
     private function extract_namespace(string $file): string
     {
-        $namespacecache = $this->scheduler_get('namespace_cache', []);
-
-        if (isset($namespacecache[$file])) {
-            return $namespacecache[$file];
-        } else {
+        if (!$this->kernel->get_var('namespace_cache', $file))
+        {
             $ns = NULL;
             $handle = fopen($file, 'r');
 
@@ -324,39 +311,10 @@ class Scheduler extends KernelObject
                 fclose($handle);
             }
 
-            $namespacecache[$file] = $ns;
-            $this->scheduler_save('namespace_cache', $namespacecache);
+            $this->kernel->put_var($ns, 'namespace_cache', $file);
             return $ns;
         }
-    }
 
-    private function scheduler_save(string $identifier, mixed $data) : void {
-        if (php_sapi_name() === 'cli-server') {
-            file_put_contents(FUJIN_ROOT . '/tmp/' . $identifier, serialize($data));
-        }
-        $_SESSION["fjx_" . $identifier] = $data;
-    }
-
-    private function scheduler_get(string $identifier, mixed $if_null = '') : mixed
-    {
-        if (php_sapi_name() === 'cli-server') {
-            if (!is_dir(FUJIN_ROOT . '/tmp/')){
-                mkdir(FUJIN_ROOT . '/tmp/');
-            }
-
-            if (is_file(FUJIN_ROOT . '/tmp/'.$identifier)) {
-                return unserialize(file_get_contents(FUJIN_ROOT . '/tmp/' . $identifier));
-            }
-
-            file_put_contents(FUJIN_ROOT . '/tmp/' . $identifier, serialize($if_null));
-            return $if_null;
-        }
-
-        if (isset($_SESSION["fjx_" . $identifier])) {
-            return $_SESSION["fjx_" . $identifier];
-        }
-
-        $_SESSION["fjx_" . $identifier] = $if_null;
-        return $if_null;
+        return $this->kernel->get_var('namespace_cache', $file);
     }
 }

@@ -36,7 +36,7 @@ class Fujin
      * Fujin Kernel Runtime.
      */
     private static $runtime;
-
+    private $runtime_memory;
     /**
      * Static Kernel Objects
      */
@@ -61,6 +61,9 @@ class Fujin
         // Assign basic information
         $this->bootstrap();
         header('fujin-version: ' . VER);
+
+        // Load persistent data
+        $this->load_vars();
 
         // Create autoloader
         $this->modlib();
@@ -165,9 +168,12 @@ class Fujin
      * @param string $message - message, command, or argument sent to the process.
      * @return void
      */
-    public function sci_invoke_process(Task|int $process, string $message = null): void
+    public function sci_invoke_process(Task|int|null $process, string $message = null): void
     {
-        $task = $this->sci_get_task($process);
+        if($process == null)
+            $task = null;
+        else
+            $task = $this->sci_get_task($process);
         $this->ko_scheduler->invoke_process($task, $message);
     }
 
@@ -266,7 +272,7 @@ class Fujin
     public function sci_set_task(int|Task $cp, string $display): void
     {
         $task = $this->sci_get_task($cp);
-        $_SESSION['fjx_currentTask'][$display] = $task->__task_pid;
+        $this->put_var($task->__task_pid, 'current_task', $display);
     }
 
     /**
@@ -362,6 +368,117 @@ class Fujin
         $task = $kernel->sci_get_task($cp);
         $kernel->ko_javascriptvm->assign_task($task);
         return $kernel->ko_javascriptvm;
+    }
+
+    /**
+     * Store a variable in the runtime memory.
+     *
+     * @param mixed $data The data to store.
+     * @param string ...$identifiers The identifiers to access the data.
+     *
+     * @return void
+     */
+    public function put_var(mixed $data, string ...$identifiers): void
+    {
+        if (!is_array($identifiers)) $identifiers = [(string) $identifiers];
+        $this->recursive_operation($this->runtime_memory, $identifiers, $data, 'set');
+    }
+
+    /**
+     * Retrieve a variable from the runtime memory.
+     *
+     * @param string ...$identifiers The identifiers to access the data.
+     *
+     * @return mixed|false The stored data, or false if not found.
+     */
+    public function get_var(string ...$identifiers): mixed
+    {
+        if (!is_array($identifiers)) $identifiers = [(string) $identifiers];
+        return $this->recursive_operation($this->runtime_memory, $identifiers, null, 'get');
+    }
+
+    /**
+     * Remove a variable from the runtime memory.
+     *
+     * @param string ...$identifiers The identifiers of the data to remove.
+     *
+     * @return void
+     */
+    public function kill_var(string ...$identifiers): void
+    {
+        if (!is_array($identifiers)) $identifiers = [(string) $identifiers];
+        $this->recursive_operation($this->runtime_memory, $identifiers, null, 'remove');
+    }
+
+    /**
+     * Initialize a variable in the runtime memory if it doesn't exist.
+     *
+     * @param mixed $if_null The value to set if the variable doesn't exist.
+     * @param string ...$identifiers The identifiers to access the data.
+     *
+     * @return void
+     */
+    public function init_var(mixed $if_null, string ...$identifiers): void
+    {
+        if(!is_array($identifiers)) $identifiers = [(string) $identifiers];
+        $this->recursive_operation($this->runtime_memory, $identifiers, $if_null, 'init');
+    }
+
+    /**
+     * Load stored variables from a file during object initialization.
+     *
+     * @return void
+     */
+    private function load_vars(): void
+    {
+        register_shutdown_function([$this, 'save_vars']);
+        if (!is_file(FUJIN_ROOT . '/tmp/runtime')) {
+            touch(FUJIN_ROOT . '/tmp/runtime');
+        }
+
+        $this->runtime_memory = unserialize(file_get_contents(FUJIN_ROOT . '/tmp/runtime'));
+        if(!is_array($this->runtime_memory)) $this->runtime_memory = [];
+    }
+
+    /**
+     * Save stored variables to a file during object shutdown.
+     *
+     * @return void
+     */
+    private function save_vars(): void
+    {
+        file_put_contents(FUJIN_ROOT . '/tmp/runtime', serialize($this->runtime_memory));
+        file_put_contents(FUJIN_ROOT . '/tmp/runtime_human.json', json_encode($this->runtime_memory));
+    }
+
+    /**
+     * Perform a recursive operation on the array based on the hierarchical identifiers.
+     *
+     * @param array &$array The array to perform the operation on.
+     * @param array $keys The hierarchical identifiers as an array.
+     * @param mixed|null $value The value to set (used in 'set' and 'init' operations).
+     * @param string $operation The operation type ('set', 'get', 'remove', 'init').
+     *
+     * @return mixed|null The retrieved value or null (used in 'get' operation).
+     */
+    private function recursive_operation(array &$array, array $keys, $value, string $operation)
+    {
+        $key = array_shift($keys);
+
+        if (empty($keys)) {
+            if ($operation === 'set' || $operation === 'init') {
+                $array[$key] = $value;
+            } elseif ($operation === 'get') {
+                return isset($array[$key]) ? $array[$key] : false;
+            } elseif ($operation === 'remove') {
+                unset($array[$key]);
+            }
+        } else {
+            if (!isset($array[$key]) || !is_array($array[$key])) {
+                $array[$key] = [];
+            }
+            return $this->recursive_operation($array[$key], $keys, $value, $operation);
+        }
     }
 
     private function bootstrap(): void

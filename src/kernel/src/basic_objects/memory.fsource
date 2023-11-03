@@ -65,7 +65,7 @@ class Mem extends KernelObject
             $pid = $this->scope_task->__task_pid;
         }
 
-        $_SESSION["fjx_mem_r"][$pid][$identifier] = $data;
+        $this->kernel->put_var($data, 'mem_r', $pid, $identifier);
     }
 
     /**
@@ -82,11 +82,7 @@ class Mem extends KernelObject
             $pid = $this->scope_task->__task_pid;
         }
 
-        if (isset($_SESSION["fjx_mem_r"][$pid][$identifier])) {
-            return $_SESSION["fjx_mem_r"][$pid][$identifier];
-        } else {
-            return false;
-        }
+        return $this->kernel->get_var('mem_r', $pid, $identifier);
     }
 
     /**
@@ -103,7 +99,7 @@ class Mem extends KernelObject
             $pid = $this->scope_task->__task_pid;
         }
 
-        $_SESSION["fjx_mem_k"][$pid][$identifier] = $data;
+        $this->kernel->put_var($data, 'mem_k', $pid, $identifier);
     }
 
     /**
@@ -120,11 +116,7 @@ class Mem extends KernelObject
             $pid = $this->scope_task->__task_pid;
         }
 
-        if (isset($_SESSION["fjx_mem_k"][$pid][$identifier])) {
-            return $_SESSION["fjx_mem_k"][$pid][$identifier];
-        } else {
-            return false;
-        }
+        return $this->kernel->get_var('mem_k', $pid, $identifier);
     }
 
     /**
@@ -134,7 +126,7 @@ class Mem extends KernelObject
      */
     public function mem_r_flush(int $pid): void
     {
-        unset($_SESSION["fjx_mem_r"][$pid]);
+        $this->kernel->kill_var('mem_r', $pid);
     }
 
     /**
@@ -147,6 +139,7 @@ class Mem extends KernelObject
         if (isset($this->scope_task)) {
             $pid = $this->scope_task->__task_pid;
         }
-        unset($_SESSION["fjx_mem_r"][$pid]);
+
+        $this->kernel->kill_var('mem_k', $pid);
     }
 }

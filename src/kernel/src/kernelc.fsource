@@ -118,22 +118,16 @@ function __gui_access__($process_id, string $command_str, bool $_return_jvsc, st
 
 function __wcon_access__(string $teletype_id, string $command_str, $process_id = null) : void
 {
-    $_SESSION["fjx_currentDisplay"] = $teletype_id;
-    if($process_id == null)
-    {
-        if (!isset($_SESSION['fjx_currentTask'][$_SESSION['fjx_currentDisplay']]))
-            $_SESSION['fjx_currentTask'][$_SESSION['fjx_currentDisplay']] = 1;
-
-        $process_id = $_SESSION['fjx_currentTask'][$_SESSION['fjx_currentDisplay']];
-    } 
+    $kernel = Fujin::c();
+    $kernel::IIO()->set_display($teletype_id);
     ob_start();
-    Fujin::c()->sci_invoke_process($process_id, $command_str);
+    $kernel->sci_invoke_process($process_id, $command_str);
     $response = ob_get_clean();
+    $prompt = $kernel::IIO()->getprompt();
     echo json_encode(
         array(
             "data" => $response,
-            "prompt" => $_SESSION["fjx_prompt"] . ' ',
-            "all" => $_SESSION
+            "prompt" => $prompt
         )
     );
 }

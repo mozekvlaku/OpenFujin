@@ -81,6 +81,7 @@ class fjsysd extends Executable
                 $kernel->sci_set_task($session, static::STD);
                 $io->println(static::OK . " Init done on /dev/" . static::STD);
             }
+            var_dump(session_status());
             $kernel->sci_set_task($session, static::STD);
             for ($i = 0; $i <= static::NUM_OF_TTYS; $i++) {
                 $tty_session = $kernel->sci_task_exists($this->user_shell, static::TTY . $i);

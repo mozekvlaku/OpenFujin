@@ -56,6 +56,13 @@ class IO extends KernelObject
      */
     private const NEWLINE = "\n";
 
+    private string $current_display;
+
+    public function set_display(string $display) : void {
+        $this->kernel->put_var($display, 'current_display');
+        $this->current_display = $display;
+    }
+
     /**
      * Prints a message to the tty display followed by a newline.
      *
@@ -118,7 +125,17 @@ class IO extends KernelObject
      */
     public function setprompt(string $prompt): void
     {
-        $_SESSION["fjx_prompt"] = $prompt;
+        $this->kernel->put_var($prompt, 'prompt', $this->scope_task->__task_pid);
+    }
+
+    /**
+     * Gets the prompt.
+     *
+     * @return string
+     */
+    public function getprompt(): string
+    {
+        return $this->kernel->get_var('prompt', $this->scope_task->__task_pid);
     }
 
     /**
@@ -130,7 +147,7 @@ class IO extends KernelObject
      */
     private function std_out(string $message, string $display_mask): void
     {
-        if (substr($_SESSION["fjx_currentDisplay"], 0, 3) == substr($display_mask, 0, 3)) {
+        if (substr($this->current_display, 0, 3) == substr($display_mask, 0, 3)) {
             echo $this->rewrite_environment($message);
         }
     }
@@ -146,7 +163,7 @@ class IO extends KernelObject
         if ($_SESSION['fjx_error_reporting'] == 'snatch') {
             echo '%ERR_MESSAGE%' . $this->rewrite_environment($message) . '%ERR_MESSAGE%';
         } else {
-            if (substr($_SESSION["fjx_currentDisplay"], 0, 3) == "tty") {
+            if (substr($this->current_display, 0, 3) == "tty") {
                 echo '[31m' . $this->rewrite_environment($message) . '[39m';
             } else {
                 echo 'Error:' . $this->rewrite_environment($message);
