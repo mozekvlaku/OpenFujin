@@ -1,0 +1,13 @@
+@@ LICENCE @@
+@@ AUTHOR @@
+
+import Framework.Kernel.GraphicalApplication;
+
+namespace @@ NAMESPACE @@ {
+    executable @@ NAME @@: GraphicalApplication
+    {
+        protected Main: Int = (args: Array) => {
+
+        }
+    }
+}

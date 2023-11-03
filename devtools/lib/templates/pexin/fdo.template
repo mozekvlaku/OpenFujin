@@ -1,0 +1,17 @@
+@@ LICENCE @@
+@@ AUTHOR @@
+
+import Framework.Library;
+
+namespace @@ NAMESPACE @@ {
+    dynamic @@ NAME @@: Library
+    {
+        let name: SystemConst      = "@@ NAME @@";
+        let version: SystemConst   = "@@ VER @@";
+        let verbosity: SystemConst = false;
+
+        protected fn init: Void = () => {
+
+        }
+    }
+}
