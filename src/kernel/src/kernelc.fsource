@@ -1,0 +1,320 @@
+<?php
+/**
+ * OpenFujin 3.2 Kernel Connection Application Interface
+ * 
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * 
+ * This software works as the sole OpenFujin API.
+ * 
+ * Access types:
+ * a: Access type, can be:
+ *      g: GUI, used in graphical UIs
+ *      c: WebConsole, used by Terminal application
+ *      a: API, used by REST endpoints
+ *      r: Remote, used by RemoteSh app
+ *      f: Setting focus for GUI
+ *      p: Getting the prompt
+ * c: Command, eg. get_cart(2666), /bin/uname or else
+ * p: Process ID (PID) of running process
+ * e: Executable, only used by REST APIs
+ * j: Return Javascript, returns Javascript array for GUI
+ * d: Return DWM, returns windows for DWM
+ * t: Set display for console applications
+ */
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+include __DIR__ . "/kernel/fujin.kernel";
+$_SESSION['fjx_error_reporting'] = "default";
+use Fujin\Kernel\Fujin;
+header("Access-Control-Allow-Origin: *");
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Origin, Content-Type, X-Auth-Token');
+
+//ini_set('display_errors', 1); ini_set('display_startup_errors', 1); error_reporting(E_ALL);
+$access_type = "invalid";
+$command_str = "tick(1)";
+$process_id  = null;
+$executable  = "/bin/fjsysd";
+$teletype_id = "tty0";
+
+$return_jvsc = false;
+$return_dwm  = null;
+
+if (isset($_REQUEST["a"]))
+    $access_type = $_REQUEST["a"];
+
+if (isset($_REQUEST["c"]))
+    $command_str = $_REQUEST["c"];
+
+if (isset($_REQUEST["p"]))
+    $process_id  = $_REQUEST["p"];
+
+if (isset($_REQUEST["e"]))
+    $executable  = $_REQUEST["e"];
+
+if (isset($_REQUEST["j"]))
+    $return_jvsc = boolval($_REQUEST["j"]);
+
+if (isset($_REQUEST["d"]))
+    $return_dwm = $_REQUEST["d"];
+
+if (isset($_REQUEST["t"]))
+    $teletype_id = $_REQUEST["t"];
+
+function __gui_access__($process_id, string $command_str, bool $_return_jvsc, string|null $_return_dwm) : void
+{
+    $_SESSION['fjx_currentDisplay'] = "jsd0";
+    $_SESSION['fjx_error_reporting'] = "snatch";
+    if($process_id == null || $process_id == "")
+    {
+        if (!isset($_SESSION['fjx_currentTask'][$_SESSION['fjx_currentDisplay']]))
+            $_SESSION['fjx_currentTask'][$_SESSION['fjx_currentDisplay']] = 1;
+
+        $process_id = $_SESSION['fjx_currentTask'][$_SESSION['fjx_currentDisplay']];
+    }
+    
+    ob_start();
+    Fujin::c()->sci_invoke_process($process_id, $command_str);
+    $response = ob_get_contents();
+    ob_end_clean();
+    $return_value = __get_errors__($response);
+    $return_jvsc  = null;
+    $return_dwm   = null;
+    if ($_return_jvsc)
+        $return_jvsc = __get_jvsc__();
+    if ($_return_dwm != null)
+        $return_dwm = base64_encode($_SESSION["fjdwm_windows"][$_return_dwm]);
+
+    //header('Content-Type: application/json');
+    echo json_encode(array(
+        "status"  => "success",
+        "version" => VER,
+        "command" => $command_str,
+        "state"   => array(
+            'focus_name' => $_SESSION['fjx_tasks'][$_SESSION['fjx_currentTask']['jsd0']]['title']['name'],
+            'focus_icon' => $_SESSION['fjx_tasks'][$_SESSION['fjx_currentTask']['jsd0']]['title']['icon'],
+            'focus_pid' => $_SESSION['fjx_currentTask']['jsd0']
+        ),
+        "stdout"  => $return_value["stdout"],
+        "stderr"  => $return_value["stderr"],
+        "js"      => $return_jvsc,
+        "dwm"     => $return_dwm
+    ));
+}
+
+function __wcon_access__(string $teletype_id, string $command_str, $process_id = null) : void
+{
+    $_SESSION["fjx_currentDisplay"] = $teletype_id;
+    if($process_id == null)
+    {
+        if (!isset($_SESSION['fjx_currentTask'][$_SESSION['fjx_currentDisplay']]))
+            $_SESSION['fjx_currentTask'][$_SESSION['fjx_currentDisplay']] = 1;
+
+        $process_id = $_SESSION['fjx_currentTask'][$_SESSION['fjx_currentDisplay']];
+    } 
+    ob_start();
+    Fujin::c()->sci_invoke_process($process_id, $command_str);
+    $response = ob_get_clean();
+    echo json_encode(
+        array(
+            "data" => $response,
+            "prompt" => $_SESSION["fjx_prompt"] . ' ',
+            "all" => $_SESSION
+        )
+    );
+}
+
+function __api_access__(string $executable, string $command_str) : void
+{
+    $_SESSION['fjx_currentDisplay'] = "apd0";
+    header("Access-Control-Allow-Origin: *");
+    header('Access-Control-Allow-Methods: POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Origin, Content-Type, X-Auth-Token');
+    $_SESSION["fjx_tasks"] = array();
+    $_SESSION["fjx_currentTask"] = array();
+    $_SESSION["fjx_jsarray"] = array();
+    $kernel = Fujin::c();
+    $configfile = FUJIN_ROOT . "/etc/apisysd.fjconf";
+    $permissions = (array) json_decode(file_get_contents($configfile), true);
+    $domain = $_SERVER['HTTP_HOST'];
+    $permitted_cmds = $permissions[$domain]["permitted"];
+
+    header('Content-Type: application/json');
+    if (!in_array($executable, $permitted_cmds)) {
+        echo json_encode(
+            array(
+                "status" => "error", 
+                "message" => "Prohibited Command or Executable, Fujin will stop now. Executing $executable on domain $domain is also prohibited from accessing the kernel."
+            )
+        );
+        exit;
+    }
+    header("HTTP/1.1 200 OK");
+    try 
+    {
+        $process_id = $kernel->sci_start_process($executable . ".gw", 1, "guest", "apd0");
+        Fujin::c()->sci_invoke_process($process_id, $command_str);
+    } 
+    catch (Exception $e)
+    {
+        echo json_encode(
+            array(
+                "status" => "error",
+                "message" => $e->getMessage()
+            )
+        );
+    }
+}
+
+function __rem_access__(string $teletype_id, string $command_str) : void
+{
+    $_SESSION["fjx_currentDisplay"] = $teletype_id;
+    if (!isset($_SESSION['fjx_currentTask'][$_SESSION['fjx_currentDisplay']]))
+        $_SESSION['fjx_currentTask'][$_SESSION['fjx_currentDisplay']] = 1;
+
+    $process_id = $_SESSION['fjx_currentTask'][$_SESSION['fjx_currentDisplay']];
+    Fujin::c()->sci_invoke_process($process_id, $command_str);
+}
+
+function __inv_access__(): void
+{
+    header('Content-Type: application/json');
+    echo json_encode(
+        array(
+            "status" => "error",
+            "message" => "Kernel Error 1"
+        )
+    );
+}
+
+function __get_errors__(string $response) : array {
+    $errors = array();
+    $pattern = '/%ERR_MESSAGE%((?s).*)%ERR_MESSAGE%/';
+    preg_match_all($pattern, $response, $errors);
+    $stdout = preg_replace($pattern, "", $response);
+    $stderr = implode(',', $errors[1]);
+    return array(
+        "stdout" => $stdout, 
+        "stderr" => $stderr
+    );
+}
+
+function __get_jvsc__() : string
+{
+    $jsarray = $_SESSION["fjx_jsarray"];
+    if (isset($_POST["n"])) {
+        return json_encode(array($_POST["n"] => $jsarray[$_POST["n"]]));
+    } else {
+        return json_encode($jsarray);
+    }
+}
+
+switch ($access_type) {
+        // GUI Access
+    case "g":
+        __gui_access__(
+            $process_id, 
+            $command_str, 
+            $return_jvsc, 
+            $return_dwm
+        );
+        break;
+
+        // WebConsole Access
+    case "c":
+        __wcon_access__(
+            $teletype_id, 
+            $command_str
+        );
+        break;
+
+        // Heartbeat Access
+    case "h":
+        __wcon_access__(
+            $teletype_id,
+            $command_str,
+            $process_id
+        );
+        break;
+
+        // API Access
+    case "a":
+        __api_access__(
+            $executable, 
+            $command_str
+        );
+        break;
+
+        // RemoteShell Access
+    case "r":
+    $_SESSION['FJACC_SETTINGS'] = 
+  array (
+    'FJID' => 'fjid_fj3_54sdfs4864sdf6',
+    'USERNAME' => 'namulnae',
+    'PASSWORD' => '',
+    'ISACTIVE' => '1',
+    'ADMIN' => 'yes',
+    'FJGROUP' => 'root',
+    'USERGROUPS' => 'root,sudoer',
+    'SH' => '/bin/sh',
+    'GUI' => '/usr/share/raijin/raijin.appf',
+    'NAME' => 'Tomáš',
+    'SURNAME' => 'Kracík',
+    'PROFILE_PIC' => 'https://vespotok.net/namulnae.png',
+    'EMAIL' => 'kracik@vespotok.net',
+    'PHONE' => '+420603580970',
+    'ADDRESS_ID' => '',
+    'PERMISSIONS' => '',
+    'LOGGED_IN' => true,
+  );
+        __rem_access__(
+            $teletype_id,
+            $command_str
+        );
+        break;
+
+        // Focus
+    case "f":
+        __gui_access__(
+            7,
+            "app_menu($process_id)",
+            false,
+            null
+        );
+        Fujin::c()->sci_set_task($process_id, "jsd0");
+        break;
+
+        // Reboot, remove in production
+    case "x":
+        session_unset();
+        break;
+
+        // Dump memory, remove in production
+    case "xx":
+        echo "<pre>".var_export($_SESSION, true)."</pre>";
+        break;
+
+        // Prompt
+    case "p":
+        echo $_SESSION["fjx_prompt"];
+        break;
+        // Invalid Access
+    default:
+        __inv_access__(
+        );
+        break;
+}

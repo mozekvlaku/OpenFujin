@@ -130,6 +130,9 @@ class LibFmake extends FujinDynamicObject {
                 case CompilationTarget::OBJECT_MODEL:
                     $file_ext = '.model';
                     break;
+                case CompilationTarget::DYNAMIC_OBJECT:
+                    $file_ext = '.fdo';
+                    break;
                 case CompilationTarget::FUJIN_MANIFEST:
                     $file_ext = '.fjmanifest';
                     break;

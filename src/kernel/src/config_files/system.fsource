@@ -1,0 +1,43 @@
+{
+    "logging": false,
+    "logging_pid_ex": [
+        1
+    ],
+    "modlib": [
+        {
+            "namespace": "Fujin\\Framework",
+            "path": "/lib/framework/",
+            "exts": [
+                ".model", ".fdo",".php"
+            ]
+        },
+        {
+            "namespace": "Fujin\\Kernel",
+            "path": "/kernel/",
+            "exts": [
+                ".ko", ".kmod"
+            ]
+        },
+        {
+            "namespace": "Fujin\\Apps",
+            "path": "/apps/",
+            "exts": [
+                ".fdo", ".model", ".gw", ".appf"
+            ]
+        },
+        {
+            "namespace": "Fujin\\ConsoleApps",
+            "path": "/bin/",
+            "exts": [
+                ""
+            ]
+        },
+        {
+            "namespace": "Fujin",
+            "path": "/lib/",
+            "exts": [
+                ".php",".model", ".fdo"
+            ]
+        }
+    ]
+}

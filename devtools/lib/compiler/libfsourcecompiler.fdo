@@ -57,6 +57,7 @@ class LibFsourceCompiler implements ICompiler {
         return $sources;
     }
     public function make_binary(string $source, CompilationTarget $target): string {
+        return $source;
         $__magic = "\0FEF\0";
         $__sys = EHSys::EH_SYS_OPEN_FUJIN->value;
         switch($target) {

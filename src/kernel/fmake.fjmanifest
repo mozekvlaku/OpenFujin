@@ -26,6 +26,16 @@
             "binary": false
         },
         {
+            "destination": "/kernelc",
+            "sources": [
+                "/src/kernelc"
+            ],
+            "mode": "fsource",
+            "type": "kernelstruct",
+            "minify": false,
+            "binary": false
+        },
+        {
             "destination": "/kernel/filesystem",
             "sources": [
                 "/src/fs_objects/filesystem"
@@ -174,8 +184,37 @@
             "type": "kernelmodel",
             "minify": true,
             "binary": true
+        },
+        {
+            "destination": "/etc/system",
+            "sources": [
+                "/src/config_files/system"
+            ],
+            "mode": "fsource",
+            "type": "config",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/etc/ver",
+            "sources": [
+                "/src/config_files/ver"
+            ],
+            "mode": "fsource",
+            "type": "config",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/etc/environment",
+            "sources": [
+                "/src/config_files/environment"
+            ],
+            "mode": "fsource",
+            "type": "config",
+            "minify": true,
+            "binary": true
         }
-        
     ],
     "make": "dist"
 }

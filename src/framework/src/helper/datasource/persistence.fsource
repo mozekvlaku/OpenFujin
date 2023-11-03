@@ -1,0 +1,156 @@
+<?php
+
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * @package     FujinFramework
+ * @subpackage  Helpers
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+namespace Fujin\Framework\Helper\DataSource;
+
+class Persistence
+{
+    private DatabaseConnection $db;
+
+    /**
+     * Class construct
+     * @param DatabaseConnection $db
+     */
+    public function __construct(DatabaseConnection $db)
+    {
+        $this->db = $db;
+    }
+
+    /**
+     * Data Query Language SELECT
+     * @param array|string $table - database table, array if join
+     * @param array|string $attributes - attributes to be selected
+     * @param string $trailer - add where clauses etc.
+     * @return array
+     */
+    public function dql_select($table, $attributes = "*", string $trailer = ""): array
+    {
+        if (is_array($attributes)) {
+            if ($this->is_indexed_array($attributes)) {
+                $attr = "";
+                foreach ($attributes as $key => $value) {
+                    if (is_numeric($key))
+                        $attr .= $value . ", ";
+                    else
+                        $attr .= $key . " as " . $value . ", ";
+                }
+                $attr = rtrim($attr, ", ");
+            } else {
+                $attr = implode(",", $attributes);
+            }
+        } else
+            $attr = $attributes;
+
+        if (is_array($table)) {
+            $tables = "";
+            foreach ($table as $key => $value) {
+                $values = $value[0];
+                $join_prefix = " " . $value[1] . " ";
+
+                if (is_numeric($key))
+                    $tables .= " join " . $value . " ";
+                else
+                    $tables .= $join_prefix . "join " . $key . " on " . $values . " ";
+            }
+            $tables = ltrim($tables, " join");
+        } else
+            $tables = $table;
+
+        $query = "SELECT $attr FROM $tables $trailer";
+        
+        return $this->db->qa($query);
+    }
+
+    /**
+     * Data Manipulation Language UPDATE
+     * @param string $table - table name
+     * @param array $values - associative array ATTRIBUTE => NEW VALUE
+     * @param string $identifier_name - name of identifier, for example ID
+     * @param string $identifier_value - value of identifier, for example 145
+     * @return bool - if successful return true
+     */
+    public function dml_update(string $table, array $values, string $identifier_name, string $identifier_value) : bool
+    {
+        $imploded_values = "";
+
+        foreach($values as $key=>$value)
+        {
+            if($value[0] == "(")
+                $imploded_values .= "$key = $value,";
+            else
+                $imploded_values .= "$key = '$value',";
+
+        }
+
+        $imploded_values = rtrim($imploded_values, ",");
+
+        $query = "UPDATE $table SET $imploded_values WHERE $identifier_name = $identifier_value";
+        error_log($query);
+        return $this->db->qb($query);
+    }
+    /** Check if array is associative */    
+    private function is_indexed_array($array): bool
+    {
+        $keys = array_keys($array);
+        return array_keys($keys) !== $keys;
+    }
+    /**
+     * Data Manipulation Language INSERT
+     * @param string $table - table name
+     * @param array $values - associative array ATTRIBUTE => NEW VALUE
+     * @param string $identifier_name - name of identifier, for example ID
+     * @param string $identifier_value - value of identifier, for example 145
+     * @return bool - if successful return true
+     */
+    public function dml_insert(string $table, array $values): bool
+    {
+        $imploded_values = "";
+        $imploded_keys = "";
+
+        foreach ($values as $key => $value) {
+            $imploded_keys .= "$key,";
+        }
+
+        $imploded_keys = rtrim($imploded_keys, ",");
+
+        foreach ($values as $key => $value) {
+            $imploded_values .= "'$value',";
+        }
+
+        $imploded_values = rtrim($imploded_values, ",");
+
+        $query = "INSERT INTO $table ($imploded_keys) VALUES ($imploded_values)";
+        return $this->db->qb($query);
+    }
+
+    /**
+     * Data Manipulation Language DELETE
+     * @param string $table - table name
+     * @param string $identifier_name - name of identifier, for example ID
+     * @param string $identifier_value - value of identifier, for example 145
+     * @return bool - if successful return true
+     */
+    public function dml_delete(string $table, string $identifier_name, string $identifier_value): bool
+    {
+        $query = "DELETE FROM $table WHERE $identifier_name = '$identifier_value'";
+        return $this->db->qb($query);
+    }
+}
