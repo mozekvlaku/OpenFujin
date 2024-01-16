@@ -1,0 +1,20 @@
+<template>
+    <div>
+        Tlačenka {{bobek}}
+        <button @click="changeBobekToHovno">Změna</button>
+    </div>
+</template>
+<script>
+export default {
+    data() {
+        return {
+            bobek: "hovno"
+        }
+    },
+    methods: {
+        changeBobekToHovno: function() {
+            this.bobek = 'superbobek';
+        }
+    }
+}
+</script>

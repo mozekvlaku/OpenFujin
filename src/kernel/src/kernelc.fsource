@@ -44,7 +44,7 @@ header("Access-Control-Allow-Origin: *");
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Origin, Content-Type, X-Auth-Token');
 
-//ini_set('display_errors', 1); ini_set('display_startup_errors', 1); error_reporting(E_ALL);
+ini_set('display_errors', 1); ini_set('display_startup_errors', 1); error_reporting(E_ALL);
 $access_type = "invalid";
 $command_str = "tick(1)";
 $process_id  = null;
@@ -124,10 +124,20 @@ function __wcon_access__(string $teletype_id, string $command_str, $process_id =
     $kernel->sci_invoke_process($process_id, $command_str);
     $response = ob_get_clean();
     $prompt = $kernel::IIO()->getprompt();
+    $runlevel = $kernel::IHousekeeping()->runlevel();
+    $guimode = $kernel::IHousekeeping()->guimode();
+    $instructions = $kernel::IHousekeeping()->instructions();
+
+    if(json_validate($response))
+        $response = json_decode($response);
+        
     echo json_encode(
         array(
             "data" => $response,
-            "prompt" => $prompt
+            "prompt" => $prompt,
+            "runlevel" => $runlevel,
+            "guimode" => $guimode,
+            "instructions" => $instructions
         )
     );
 }
@@ -236,8 +246,8 @@ switch ($access_type) {
         );
         break;
 
-        // Heartbeat Access
-    case "h":
+        // System Access
+    case "s":
         __wcon_access__(
             $teletype_id,
             $command_str,
@@ -253,59 +263,6 @@ switch ($access_type) {
         );
         break;
 
-        // RemoteShell Access
-    case "r":
-    $_SESSION['FJACC_SETTINGS'] = 
-  array (
-    'FJID' => 'fjid_fj3_54sdfs4864sdf6',
-    'USERNAME' => 'namulnae',
-    'PASSWORD' => '',
-    'ISACTIVE' => '1',
-    'ADMIN' => 'yes',
-    'FJGROUP' => 'root',
-    'USERGROUPS' => 'root,sudoer',
-    'SH' => '/bin/sh',
-    'GUI' => '/usr/share/raijin/raijin.appf',
-    'NAME' => 'Tomáš',
-    'SURNAME' => 'Kracík',
-    'PROFILE_PIC' => 'https://vespotok.net/namulnae.png',
-    'EMAIL' => 'kracik@vespotok.net',
-    'PHONE' => '+420603580970',
-    'ADDRESS_ID' => '',
-    'PERMISSIONS' => '',
-    'LOGGED_IN' => true,
-  );
-        __rem_access__(
-            $teletype_id,
-            $command_str
-        );
-        break;
-
-        // Focus
-    case "f":
-        __gui_access__(
-            7,
-            "app_menu($process_id)",
-            false,
-            null
-        );
-        Fujin::c()->sci_set_task($process_id, "jsd0");
-        break;
-
-        // Reboot, remove in production
-    case "x":
-        session_unset();
-        break;
-
-        // Dump memory, remove in production
-    case "xx":
-        echo "<pre>".var_export($_SESSION, true)."</pre>";
-        break;
-
-        // Prompt
-    case "p":
-        echo $_SESSION["fjx_prompt"];
-        break;
         // Invalid Access
     default:
         __inv_access__(

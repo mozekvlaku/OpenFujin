@@ -36,6 +36,16 @@
             "binary": false
         },
         {
+            "destination": "/kernel/housekeeping",
+            "sources": [
+                "/src/basic_objects/housekeeping"
+            ],
+            "mode": "fsource",
+            "type": "kernelobj",
+            "minify": true,
+            "binary": true
+        },
+        {
             "destination": "/kernel/filesystem",
             "sources": [
                 "/src/fs_objects/filesystem"

@@ -49,7 +49,7 @@ class JavaScriptVM extends KernelObject
     /**
      * The path of the JavaScript Virtual Machine kernel object.
      */
-    const KERNEL_OBJECT_PATH = "/nukernel/javascriptvm.ko";
+    const KERNEL_OBJECT_PATH = "/kernel/javascriptvm.ko";
 
     /**
      * Add a script to the virtual machine, overwriting any existing script with the same name.

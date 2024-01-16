@@ -46,6 +46,36 @@
             "binary": true
         },
         {
+            "destination": "/lib/framework/kernel/guiapplication",
+            "sources": [
+                "/src/kernel/guiapplication"
+            ],
+            "mode": "fsource",
+            "type": "object",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/lib/framework/kernel/guicredentialprovider",
+            "sources": [
+                "/src/kernel/guicredentialprovider"
+            ],
+            "mode": "fsource",
+            "type": "object",
+            "minify": true,
+            "binary": true
+        },
+        {
+            "destination": "/lib/framework/ui/window",
+            "sources": [
+                "/src/ui/windowing/window"
+            ],
+            "mode": "fsource",
+            "type": "object",
+            "minify": true,
+            "binary": true
+        },
+        {
             "destination": "/lib/framework/helper/kernel/registry",
             "sources": [
                 "/src/helper/kernel/registry"

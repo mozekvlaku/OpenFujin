@@ -45,6 +45,7 @@ class Fujin
     public $ko_io;
     public $ko_javascriptvm;
     public $ko_mem;
+    public $ko_housekeeping;
 
     /**
      * Runtime Kernel Objects
@@ -313,6 +314,26 @@ class Fujin
         return $kernel->ko_fsec;
     }
 
+
+    /**
+     * Fujin Housekeeping subsystem interface
+     *
+     * @return HouseKeeping
+     */
+    public static function IHousekeeping(Task|int $cp = 1): HouseKeeping
+    {
+        if (self::$runtime === null) {
+            self::$runtime = new self;
+        }
+        $kernel = self::$runtime;
+        if ($kernel->ko_housekeeping === null) {
+            $kernel->ko_housekeeping = new HouseKeeping($kernel);
+        }
+        $task = $kernel->sci_get_task($cp);
+        $kernel->ko_housekeeping->assign_task($task);
+        return $kernel->ko_housekeeping;
+    }
+
     /**
      * IO interface
      *
@@ -381,7 +402,21 @@ class Fujin
     public function put_var(mixed $data, string ...$identifiers): void
     {
         if (!is_array($identifiers)) $identifiers = [(string) $identifiers];
-        $this->recursive_operation($this->runtime_memory, $identifiers, $data, 'set');
+        //$this->recursive_operation($this->runtime_memory, $identifiers, $data, 'set');
+        $current = &$this->runtime_memory;
+        
+        foreach ($identifiers as $i => $level) {
+            if (!isset($current[$level])) {
+                if ($i === count($identifiers) - 1) {
+                    if(isset($current[$level]))
+                        unset($current[$level]);
+                    $current[$level] = $data;
+                } else {
+                    $current[$level] = [];
+                }
+            }
+            $current = &$current[$level];
+        }
     }
 
     /**
@@ -394,7 +429,16 @@ class Fujin
     public function get_var(string ...$identifiers): mixed
     {
         if (!is_array($identifiers)) $identifiers = [(string) $identifiers];
-        return $this->recursive_operation($this->runtime_memory, $identifiers, null, 'get');
+        //return $this->recursive_operation($this->runtime_memory, $identifiers, null, 'get');
+        $current = $this->runtime_memory;
+        foreach ($identifiers as $level) {
+            if (isset($current[$level])) {
+                $current = $current[$level];
+            } else {
+                return null;
+            }
+        }
+        return $current;
     }
 
     /**
@@ -407,7 +451,18 @@ class Fujin
     public function kill_var(string ...$identifiers): void
     {
         if (!is_array($identifiers)) $identifiers = [(string) $identifiers];
-        $this->recursive_operation($this->runtime_memory, $identifiers, null, 'remove');
+                //$this->recursive_operation($this->runtime_memory, $identifiers, null, 'remove');
+        $current = &$this->runtime_memory;
+        foreach ($identifiers as $i => $level) {
+            if (isset($current[$level])) {
+                if ($i === count($identifiers) - 1) {
+                    unset($current[$level]);
+                }
+                $current = &$current[$level];
+            } else {
+                break;
+            }
+        }
     }
 
     /**
@@ -421,7 +476,19 @@ class Fujin
     public function init_var(mixed $if_null, string ...$identifiers): void
     {
         if(!is_array($identifiers)) $identifiers = [(string) $identifiers];
-        $this->recursive_operation($this->runtime_memory, $identifiers, $if_null, 'init');
+        //$this->recursive_operation($this->runtime_memory, $identifiers, $if_null, 'init');
+        $current = &$this->runtime_memory;
+        
+        foreach ($identifiers as $i => $level) {
+            if (!isset($current[$level])) {
+                if ($i === count($identifiers) - 1) {
+                    $current[$level] = $if_null;
+                } else {
+                    $current[$level] = [];
+                }
+            }
+            $current = &$current[$level];
+        }
     }
 
     /**
@@ -461,7 +528,7 @@ class Fujin
      *
      * @return mixed|null The retrieved value or null (used in 'get' operation).
      */
-    private function recursive_operation(array &$array, array $keys, $value, string $operation)
+    private function recursive_operation(array &$array, array $keys, $value, string $operation, int $level = 1)
     {
         $key = array_shift($keys);
 
@@ -469,7 +536,7 @@ class Fujin
             if ($operation === 'set' || $operation === 'init') {
                 $array[$key] = $value;
             } elseif ($operation === 'get') {
-                return isset($array[$key]) ? $array[$key] : false;
+                return isset($array[$key]) ? $array[$key] : null;
             } elseif ($operation === 'remove') {
                 unset($array[$key]);
             }
@@ -477,7 +544,7 @@ class Fujin
             if (!isset($array[$key]) || !is_array($array[$key])) {
                 $array[$key] = [];
             }
-            return $this->recursive_operation($array[$key], $keys, $value, $operation);
+            return $this->recursive_operation($array[$key], $keys, $value, $operation, $level++);
         }
     }
 
@@ -528,5 +595,13 @@ class Fujin
             $this->ko_mem->mem_k_add('envpath', json_decode(file_get_contents(FUJIN_ROOT . '/etc/environment.fjconf'))->path);
             $this->ko_mem->mem_k_add('ver', json_decode(file_get_contents(FUJIN_ROOT . '/etc/ver.fjconf')));
         }
+    }
+
+    public function set_runlevel(int $runlevel) : void {
+        $this->put_var($runlevel, 'runlevel');
+    }
+
+    public function get_runlevel() : int {
+        return $this->get_var('runlevel');
     }
 }

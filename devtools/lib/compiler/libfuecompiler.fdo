@@ -1,0 +1,92 @@
+<?php
+/**
+ * Copyright 2024 Ing. Tomas Kracik (Vespotok)
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * 
+ * Fujin Make - Fujin Source and Pexin compiler
+ * 
+ * @package     FujinMake
+ * @author      Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\DevTools\Compiler;
+
+class LibFueCompiler implements ICompiler {
+    private string $project_root    = "";
+    private bool $is_binary         = false;
+
+    private string $project_name    = "";
+    private string $project_version = "";
+
+    public function __construct(string $project_root, string $project_name, string $project_version)
+    {
+        $this->project_root = $project_root;
+        $this->project_name = $project_name;
+        $this->project_version = $project_version;
+    }
+
+    public function prepare_sources(array $sources): array {
+        // TODO: checking the namespaces, removing <?php etc
+
+        return $sources;
+    }
+
+    public function load_sources(array $paths, callable $log = null): array {
+        $sources = [];
+        foreach($paths as $path) {
+            $file = realpath($this->project_root . DIRECTORY_SEPARATOR . $path . '.fue');
+            if(!is_file($file))
+            {
+                throw new CompilationException('Could not load file ' . $file . ', as it does not exist.', 900);
+            }
+            $sources[] = file_get_contents($file);
+            if($log != null)
+                $log('Loaded source ' .$path . '.fue');
+        }
+        return $sources;
+    }
+    public function make_binary(string $source, CompilationTarget $target): string {
+        return $source;
+    }
+    public function compile(array $sources): string {
+        $componentContent = implode("", $sources);
+        $componentContent = preg_replace('/<!--(.*?)-->/s', '', $componentContent);
+        preg_match('/<template>(.*?)<\/template>/s', $componentContent, $matches);
+        $template = isset($matches[1]) ? trim($matches[1]) : '';
+
+        preg_match('/<script(.*?)>(.*?)<\/script>/s', $componentContent, $matches);
+        $scriptContent = isset($matches[2]) ? trim($matches[2]) : '';
+        $scriptContent = preg_replace(['/export default/'], '', $scriptContent);
+        $scriptContent = preg_replace('/^\ {|\}$/m', '', $scriptContent);
+
+        return <<<EOD
+        {
+            template: `$template`,
+            $scriptContent
+        }
+        EOD;
+    }
+    public function save_sources(string $sources, string $destination, string $type): bool {
+        $final_destination = str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $this->project_root . DIRECTORY_SEPARATOR . 'dist' . DIRECTORY_SEPARATOR . $this->project_name . '@' . $this->project_version . DIRECTORY_SEPARATOR . $destination);
+        if(!is_dir(dirname($final_destination)))
+            mkdir(dirname($final_destination), 0777, true);
+
+        return (bool) file_put_contents($final_destination, $sources);
+    }
+
+    public function minify_sources(array $sources): array
+    {
+        return $sources;
+    }
+}

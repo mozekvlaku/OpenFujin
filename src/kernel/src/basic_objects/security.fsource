@@ -30,7 +30,7 @@ class FSec extends KernelObject
     const KERNEL_OBJECT_NAME = "FujinSecuritySubsystem";
     const KERNEL_OBJECT_VERSION = "1.0";
     const KERNEL_OBJECT_TYPE = "KoTypeVoluntary";
-    const KERNEL_OBJECT_PATH = "/nukernel/fsec.ko";
+    const KERNEL_OBJECT_PATH = "/kernel/fsec.ko";
 
     const ENDPOINT = "kernelc.fujin";
 

@@ -27,11 +27,11 @@ use Fujin\DevTools\Compiler\CompilationException;
 use Fujin\DevTools\Compiler\CompilationMode;
 use Fujin\DevTools\Compiler\CompilationTarget;
 use Fujin\DevTools\Compiler\LibFsourceCompiler;
-
+use Fujin\DevTools\Compiler\LibFueCompiler;
 
 class LibFmake extends FujinDynamicObject {
     const FDO_NAME                            = "FujinMakeCommonLib";
-    const FDO_VERSION                         = "1.0.0";
+    const FDO_VERSION                         = "1.0.1";
 
     private CompilationMode $compilation_mode = CompilationMode::DEVELOPMENT;
     private string $project_root              = '';
@@ -84,13 +84,17 @@ class LibFmake extends FujinDynamicObject {
                 $compiler = new LibFsourceCompiler($this->project_root, $this->project_name, $this->project_version);
                 break;
 
+                case 'fue':
+                $compiler = new LibFueCompiler($this->project_root, $this->project_name, $this->project_version);
+                break;
+
                 case 'pexin':
                 // TODO: when pexin is ready, add it here
                 default:
                     throw new CompilationException('The provided mode ('. $target->mode .') is not yet supported by this version of fmake.', 300);
                 break;
             }
-            $this->log('Preparing ' . count($target->sources) . ' sources');
+            $this->log('Preparing ' . count($target->sources) . ' sources ('.implode(',',$target->sources).')');
             $sources = $compiler->load_sources($target->sources, function ($msg) {
                 $this->log($msg);
             });
@@ -129,6 +133,9 @@ class LibFmake extends FujinDynamicObject {
                     break;
                 case CompilationTarget::OBJECT_MODEL:
                     $file_ext = '.model';
+                    break;
+                case CompilationTarget::WINDOW_MODEL:
+                    $file_ext = '.window';
                     break;
                 case CompilationTarget::DYNAMIC_OBJECT:
                     $file_ext = '.fdo';

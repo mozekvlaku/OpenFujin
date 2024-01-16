@@ -32,6 +32,7 @@ enum CompilationTarget: string {
     case KERNEL_SELF           = 'kernel';
     case GATEWAY_APPLICATION   = 'gateway';
     case OBJECT_MODEL          = 'object';
+    case WINDOW_MODEL          = 'window';
     case FUJIN_MANIFEST        = 'manifest';
     case FUJIN_CONFIGURATION   = 'config';
     case INI_CONFIGURATION     = 'iniconfig';

@@ -1,0 +1,78 @@
+<?php
+/**
+ * Copyright 2023 Ing. Tomas Kracik (Vespotok)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * @package     Kernel
+ * @subpackage  KernelObjects
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\Kernel;
+
+use Fujin\Kernel\Obj\KernelObject;
+
+/**
+ * Class HouseKeeping
+ *
+ * Represents basic kernel state.
+ */
+class HouseKeeping extends KernelObject
+{
+    const KERNEL_OBJECT_NAME = "HouseKeeping";
+    const KERNEL_OBJECT_VERSION = "1.0";
+    const KERNEL_OBJECT_TYPE = "KoTypeVoluntary";
+    const KERNEL_OBJECT_PATH = "/kernel/housekeeping.ko";
+    // Gets and sets runlevel
+    public function runlevel(int $runlevel = null) : int {
+        if($runlevel !== null)
+            $this->kernel->IMem($this->kernel_task)->mem_r_add('runlevel', $runlevel);
+
+        return $this->kernel->IMem($this->kernel_task)->mem_r_get('runlevel', 0);        
+    }
+
+    // Gets and sets guimode (for example during boot)
+    public function guimode(bool $guimode = null) : bool {
+        if($guimode !== null)
+            $this->kernel->IMem($this->kernel_task)->mem_r_add('guimode', $guimode);
+
+        return $this->kernel->IMem($this->kernel_task)->mem_r_get('guimode', false);  
+    }
+
+    // Gets and sets instructions (for example during boot)
+    public function instructions(array $instructions = null) : array {
+        if($instructions !== null)
+            $this->kernel->IMem($this->kernel_task)->mem_r_add('instructions', $instructions);
+
+        return $this->kernel->IMem($this->kernel_task)->mem_r_get('instructions', []);  
+    }
+
+    public function reboot_system() : void {
+        $this->kernel->IMem($this->kernel_task)->mem_r_flush($this->kernel_task->__task_pid);
+        $this->kernel->kill_var('tasks');
+        $this->kernel->kill_var('tasks_shadow');
+    }
+
+
+    public function shutdown_system() : void {
+        $this->kernel->IMem($this->kernel_task)->mem_r_flush($this->kernel_task->__task_pid);
+        $this->kernel->kill_var('tasks');
+        $this->kernel->kill_var('tasks_shadow');
+        
+    }
+
+    public function kernel_panic() : void {
+
+    }
+}

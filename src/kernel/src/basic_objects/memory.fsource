@@ -49,7 +49,7 @@ class Mem extends KernelObject
     /**
      * The path of the Memory Registry Controller kernel object.
      */
-    const KERNEL_OBJECT_PATH = "/nukernel/mem.ko";
+    const KERNEL_OBJECT_PATH = "/kernel/mem.ko";
 
     /**
      * Add data to the runtime memory registry.
@@ -74,7 +74,7 @@ class Mem extends KernelObject
      * @param string $identifier The identifier for the data to retrieve.
      * @return mixed The retrieved data or false if not found.
      */
-    public function mem_r_get(string $identifier): mixed
+    public function mem_r_get(string $identifier, $default = null): mixed
     {
         $pid = 1;
 
@@ -82,7 +82,10 @@ class Mem extends KernelObject
             $pid = $this->scope_task->__task_pid;
         }
 
-        return $this->kernel->get_var('mem_r', $pid, $identifier);
+        if($return = $this->kernel->get_var('mem_r', $pid, $identifier))
+            return $return;
+
+        return $default;
     }
 
     /**

@@ -51,7 +51,7 @@ class Scheduler extends KernelObject
     /**
      * The path of the Scheduler kernel object.
      */
-    const KERNEL_OBJECT_PATH = "/nukernel/scheduler.ko";
+    const KERNEL_OBJECT_PATH = "/kernel/scheduler.ko";
 
     /**
      * Default constants for process ID registration.
@@ -79,7 +79,7 @@ class Scheduler extends KernelObject
         $this->kernel->init_var([], 'tasks');
         $this->kernel->init_var([], 'tasks_shadow');
         $this->kernel->init_var('stdout', 'current_display');
-
+        
         if (!$kernel->get_var('tasks', self::INIT_PID) || !$kernel->get_var('tasks_shadow', self::INIT_PID)) {
             $init = new Task("/bin/fjsysd", "-i", 0, "root");
             $init->set_name(self::INIT_NAME);

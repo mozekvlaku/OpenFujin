@@ -33,7 +33,7 @@ class FileSystem extends KernelObject {
     const KERNEL_OBJECT_NAME = "FileSystem";
     const KERNEL_OBJECT_VERSION = "1.0";
     const KERNEL_OBJECT_TYPE = "KoTypeVoluntary";
-    const KERNEL_OBJECT_PATH = "/nukernel/filesystem.ko";
+    const KERNEL_OBJECT_PATH = "/kernel/filesystem.ko";
 
     /**
     * @brief Checks if $path is accessible to process $pid.

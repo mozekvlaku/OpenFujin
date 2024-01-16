@@ -16,6 +16,16 @@
     },
     "targets": [
         {
+            "destination": "/etc/inittab",
+            "sources": [
+                "/src/config_files/initialization_sequence"
+            ],
+            "mode": "fsource",
+            "type": "iniconfig",
+            "minify": false,
+            "binary": false
+        },
+        {
             "destination": "/bin/pwd",
             "sources": [
                 "/src/pwd"

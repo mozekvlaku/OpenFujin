@@ -1,0 +1,152 @@
+<?php
+/**
+ * Fujin AppFramework GUI Application Frame
+ * 
+ * This class is used to be extended on 
+ * to provide a seamless app making for
+ * Fujin TM
+ * 
+ * Copyright Vespotok veDev (c) 2021
+ * Misuse punishable by law
+ * 
+ * @package     FujinFramework
+ * @subpackage  Kernel
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+namespace Fujin\Framework\Kernel;
+use Fujin\Framework\UI\Windowing\Window;
+class GUIApplication extends Application
+{
+    protected bool $can_run = false;
+    protected array $array_of_windows;
+
+    const APP_NAME          = 'Graphic Application';
+    const APP_ICON_GROUP    = 'mimes';
+    const APP_ICON          = 'text-x-php';
+    const APP_TYPE          = 'generic';
+    const APP_MENUBAR_DIR   = '/etc/shell/';
+    const APP_MENUBAR_FILE  = 'default';
+
+    /**
+     * Add a window to a running app. Use this function, it will
+     * stringify them and keep them running!
+     * @param Window $new_window - instantiate a new window
+     */
+    public final function add_window(Window $new_window) : void
+    {
+        if(!isset($_SESSION['fjx_framework_windows']))
+            $_SESSION['fjx_framework_windows'] = array();
+
+        $this->array_of_windows = $_SESSION['fjx_framework_windows'];
+        $this->array_of_windows[$this->pid][$new_window->window_name] = serialize($new_window);
+        $_SESSION['fjx_framework_windows'] = $this->array_of_windows;
+    }
+
+    /**
+     * Get a window of running app from memory. This function will
+     * give you your already instantiated window, that you can use 
+     * to manipulate it, or whatever
+     * @param string $window_id - id of your window
+     * @return Window - returns the Window class
+     */
+    public final function get_window(string $window_id)
+    {
+        $this->array_of_windows = $_SESSION['fjx_framework_windows'];
+        if(isset($this->array_of_windows[$this->pid][$window_id]) && $this->array_of_windows[$this->pid][$window_id] != '')
+            return unserialize($this->array_of_windows[$this->pid][$window_id]);
+        else
+            return null;
+    }
+    /**
+     * 
+     * Sends script to frontend, forces it to update
+     * @param string $script - javascript
+     * @param string $container
+     * 
+     */
+    protected function force_script(string $script, string $container = null, int $pid = null) : void
+    {
+        if($pid == null)
+            $pid = $this->pid;
+
+        if($container == null)
+            $container = str_replace(' ', '', $this->me->get_classname() . rand(100, 999));
+
+        $this->kernel->IJavaScriptVM($this->me)->add_script_force($container, $script, $pid);
+    }
+
+    /**
+     * 
+     * Print out
+     * @param string $show - puts out on the screen
+     * 
+     */
+    protected function show(string $show): void
+    {
+        $this->kernel->IIO($this->me)->gdi_print($show);
+    }
+
+    /**
+     * 
+     * Print out
+     * @param string $show - puts out on the screen
+     * 
+     */
+    protected function error(string $error): void
+    {
+        $this->kernel->IIO($this->me)->std_err($error);
+    }
+
+    /**
+     * Rewriting of function dispatcher to check if --skip-check flag has
+     * been used = run gui apps from command line.
+     * @param $args - arguments
+     */
+    protected final function function_dispatcher($args): void
+    {
+        $this->ch('--skip-check', function() {
+            $this->can_run = true;
+            $_SESSION['fjx_prompt'] = '['.$this->title.'] GUI Application';
+        });
+
+        if ($_SESSION['fjx_currentDisplay'] == 'jsd0') {
+            $this->can_run = true;
+        }
+
+        if($args == null)
+        {
+            $args = array();
+        }
+        // Calling GUI hook, this is used for custom application forms
+        $this->guihook();
+        if ($this->can_run) {
+            $this->main($args);
+        } else {
+            $this->show('This is a graphical app, please run it from a graphical display jsd0, this is ' . $_SESSION['fjx_currentDisplay'] . '.\n');
+        }
+
+        
+    }
+
+    /**
+     * 
+     * Main function of a GUI app
+     * is descendant of function_dispatcher
+     * @param array $args - array of arguments given on start or refresh of process
+     */
+    protected function main(array $args): void
+    {
+    }
+
+    /**
+     * This function is called in invoking, use it to call fn, df etc. for internal fnct
+     */
+    protected function guihook(): void
+    {
+
+    }
+    protected function sys_exit_before(): void
+    {
+        $this->force_script('close_all_windows_of_pid($this->pid);', 'GUIAppBroker', 1);
+    }
+}

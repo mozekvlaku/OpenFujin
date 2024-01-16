@@ -49,7 +49,7 @@ class IO extends KernelObject
     /**
      * The path of the IO kernel object.
      */
-    const KERNEL_OBJECT_PATH = "/nukernel/io.ko";
+    const KERNEL_OBJECT_PATH = "/kernel/io.ko";
 
     /**
      * The newline character used for printing.
@@ -135,7 +135,10 @@ class IO extends KernelObject
      */
     public function getprompt(): string
     {
+        if($this->kernel->get_var('prompt', $this->scope_task->__task_pid))
         return $this->kernel->get_var('prompt', $this->scope_task->__task_pid);
+
+        return '';
     }
 
     /**

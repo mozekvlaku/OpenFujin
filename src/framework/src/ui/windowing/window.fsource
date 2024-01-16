@@ -1,0 +1,60 @@
+<?php
+/**
+ * Fujin AppFramework Window Model
+ * 
+ * This class is used to create a Fujin DWM Window
+ *  
+ * Copyright Vespotok veDev (c) 2021
+ * Misuse punishable by law
+ * 
+ * @package     FujinFramework
+ * @subpackage  UI
+ * @author      Vespotok veDev - Tomáš Kracík <kracik@vespotok.net>
+ */
+
+namespace Fujin\Framework\UI\Windowing;
+
+use Fujin\Kernel\Fujin;
+use Fujin\Kernel\Obj\Task;
+
+class Window
+{
+    private string $title;
+    private int $id;
+    private int $active;
+    private int $width;
+    private int $height;
+    private bool $maximizable;
+    private bool $minimizable;
+    private bool $closeable;
+    private bool $moveable;
+    private bool $centered;
+
+    public static function Define() : self
+    {
+        $self = new self();
+        $self->id = uniqid('window');
+
+        return $self;
+    }
+
+    public function GetFue(Task $me, string $fue_window) : self {
+        $window_obj = [
+            'title' => $this->title,
+            'id' => $this->id,
+            'active' => $this->active,
+            'width' => $this->width,
+            'height' => $this->height,
+            'maximizable' => $this->maximizable,
+            'minimizable' => $this->minimizable,
+            'closeable' => $this->closeable,
+            'moveable' => $this->moveable,
+            'centered' => $this->centered,
+            'body' => file_get_contents(FUJIN_ROOT . $fue_window)
+        ];
+
+        $me->set_meta($window_obj);
+
+        return $this;
+    }
+}

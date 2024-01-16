@@ -1,6 +1,4 @@
 <?php
-//SH
-
 /**
  * [Fujin Executable]
  * 
@@ -15,11 +13,13 @@
 
 namespace Fujin\ConsoleApps;
 
+use Fujin\Framework\Kernel\ConsoleApplication;
 use Fujin\Kernel\Fujin;
+use Exception;
 use Fujin\Kernel\Obj\EndpointEnum;
 use Fujin\Kernel\Obj\Executable;
 
-class fjsysd extends Executable
+class fjsysd extends ConsoleApplication
 {
     // Default init executables
     private const DEFAULT_GETTY     = "/bin/sh";
@@ -28,7 +28,7 @@ class fjsysd extends Executable
     private const DEFAULT_APISHELL  = "/bin/sh";
 
     // TTYs and GUIs
-    private const NUM_OF_TTYS = 3;
+    private const NUM_OF_TTYS = 1;
     private const NUM_OF_GDIS = 0;
     private const NUM_OF_APIS = 0;
     private const TTY = "tty";
@@ -42,10 +42,100 @@ class fjsysd extends Executable
 
     // Misc constants
     private const OK = "[[32m  OK  [37m]";
-    public function handle(string $args) : void
+
+    protected function main(array $args): void
     {
-        if ($args == "get_graphical_client(1)") {
-            $this->get_graphical_client();
+
+        $this->user_shell = self::DEFAULT_GETTY;
+
+        $io = Fujin::IIO($this->me);
+        $kernel = Fujin::c();
+        $this->fn("boot", function () {
+            Fujin::IHousekeeping($this->me)->instructions($this->prepare_inittab());
+        });
+        $this->fn("echo", function ($msg) use ($io) {
+            $io->println($msg);
+        });
+        $this->fn("getty", function ($display) use ($kernel, $io) {
+            $session = $kernel->sci_task_exists($this->user_shell, $display);
+            if ($session == false) {
+                $session = $kernel->sci_start_process($this->user_shell, $this->me, USER, $display);
+                $kernel->sci_send_message($session, "init(1)");
+                $kernel->sci_set_task($session, $display);
+                $io->print(self::OK . " Init done on /dev/" . $display);
+            }
+        });
+        $this->fn("progress", function ($percentage, $message) {
+            echo json_encode([
+                'progress' => (int)$percentage,
+                'message' => $message
+            ]);
+        });
+        $this->fn("boot_modules", function () use ($io) {
+            $io->println(self::OK . ' loaded kernel objects');
+            $io->print(self::OK . ' guiserver preparing...');
+        });
+
+        $this->fn("reboot", function() {
+            Fujin::IHousekeeping($this->me)->reboot_system();
+        });
+        $this->fn("shut_down", function() {
+            Fujin::IHousekeeping($this->me)->shutdown_system();
+        });
+
+        $this->fn("show_bootscreen", function() {
+            Fujin::IHousekeeping($this->me)->guimode(true);
+        });
+
+        $this->fn("runlevel", function($runlevel) {
+            Fujin::IHousekeeping($this->me)->runlevel($runlevel);
+        });
+
+        $this->fn("show_runtime_info", function () use ($io) {
+            $io->println('   _|_|                                  _|_|_|_|            _|  _|            ');
+            $io->println(' _|    _|  _|_|_|      _|_|    _|_|_|    _|        _|    _|          _|_|_|    ');
+            $io->println(' _|    _|  _|    _|  _|_|_|_|  _|    _|  _|_|_|    _|    _|  _|  _|  _|    _|  ');
+            $io->println(' _|    _|  _|    _|  _|        _|    _|  _|        _|    _|  _|  _|  _|    _|  ');
+            $io->println('   _|_|    _|_|_|      _|_|_|  _|    _|  _|          _|_|_|  _|  _|  _|    _|  ');
+            $io->println('           _|                                                _|                ');
+            $io->println('           _|                                              _|                  ');
+            $io->println();
+            $io->println(VER);
+            $io->println();
+            $io->println(self::OK . ' inittab loaded');
+            $io->print(self::OK . ' preparing to boot modules');
+        });
+        $this->ms_exist(function () {
+            $args = explode(" ", $this->args);
+            $this->parse_builtins($args);
+        });
+    }
+
+    private function parse_builtins(array $args) : void
+    {
+        $command = $args[0];
+        array_shift($args);
+        $data = implode(" ", $args);
+        $parent = $this->me->get_parent();
+        switch ($command) {
+            default:
+                $this->execute_exe($command, $data);
+                break;
+        }
+    }
+
+    private function execute_exe(string $path, string $data = "") : void
+    {
+        try {
+            $new_process = $this->kernel->sci_start_process($path, $this->me->__task_pid, $this->me->get_owner(), $this->me->get_display());
+            $this->kernel->sci_send_message($new_process, $data);
+            $this->kernel->sci_invoke_process($new_process);
+        } catch (Exception $e) {
+            $this->print_err($e->getMessage());
+        }
+    }
+        
+        /*if ($args == "get_graphical_client(1)") {
         }
         else
         {
@@ -63,7 +153,6 @@ class fjsysd extends Executable
                     $this->user_gui = static::DEFAULT_GUI;
                 else
                     $this->user_gui = $_SESSION["FJACC_SETTINGS"]["GUI"];
-
                 $io->println(static::OK . " User data found.");
             } else {
                 $this->user_gui = static::DEFAULT_GUIAUTH;
@@ -81,8 +170,7 @@ class fjsysd extends Executable
                 $kernel->sci_set_task($session, static::STD);
                 $io->println(static::OK . " Init done on /dev/" . static::STD);
             }
-            var_dump(session_status());
-            $kernel->sci_set_task($session, static::STD);
+            $kernel->sci_set_task($session, self::STD);
             for ($i = 0; $i <= static::NUM_OF_TTYS; $i++) {
                 $tty_session = $kernel->sci_task_exists($this->user_shell, static::TTY . $i);
                 if ($tty_session == false) {
@@ -114,143 +202,26 @@ class fjsysd extends Executable
                 $kernel->sci_set_task($api_session, static::API . $i);
             }
             $io->println(static::OK . " Fujin successfully booted.");
+        }*/
+
+
+    private function prepare_inittab() : array {
+        $inittab = explode("\n", file_get_contents(FUJIN_ROOT . '/etc/inittab'));
+        $instructions = [];
+        foreach($inittab as $tab)
+        {
+            if($tab == '')
+                continue;
+            $tab = explode(":", $tab);
+            array_push($instructions, [
+                'id' => $tab[0],
+                'runlevel' => (int) $tab[1],
+                'action' => $tab[2],
+                'delay' => (int) $tab[3],
+                'process' => trim($tab[4])
+            ]);
         }
-    }
-
-    private function get_graphical_client() : void {
-        header("Access-Control-Allow-Origin: *");
-        header("Cache-Control: max-age=31536000");
-
-        if (!isset($_GET["no_reset"])) {
-            $_SESSION["fjx_tasks"] = array();
-            $_SESSION["fjx_currentTask"] = array();
-            $_SESSION["fjx_jsarray"] = array();
-        }
-        
-        $this->graphical_client_basic_chrome();
-        echo '
-            <div class="SCRIPT" id="SCRIPT"></div>
-            <div class="DISPLAY ACTIVE" id="DISPLAY_0_0">
-            
-                <div class="UI_PANE" id="RAIJIN_BACK"></div>
-
-                <div class="UI_PANE animate__animated " id="RAIJIN_WORKAREA">
-                    <div class="UI_PANE" id="RAIJIN_DESKTOP" onclick=\'dwmFocus(7)\'>
-                        <div style="background-image: url(\'' . FUJIN_PATH . '/usr/share/graphics/boot.svg\'); background-size: auto; background-position:center; width: 100vw; height: 100vh;"></div>
-                    </div>
-                    <div class="UI_PANE" id="RAIJIN_WINDOWS">
-                    </div>
-                </div>
-                <div class="UI_PANE" id="RAIJIN_UI"></div>
-                <p class="DISPLAY_IDENTIFICATION">DISPLAY:0.0 - jsd0</p>
-            </div>
-            <div class="DISPLAY" id="DISPLAY_0_1">
-                <div class="CONSOLE" id="CONSOLE_0_1"></div>
-                <p class="DISPLAY_IDENTIFICATION">DISPLAY:0.1 - tty0</p>
-            </div>
-            <div class="DISPLAY" id="DISPLAY_0_2">
-                <div class="CONSOLE" id="CONSOLE_0_2"></div>
-                <p class="DISPLAY_IDENTIFICATION">DISPLAY:0.2 - tty1</p>
-            </div>
-            <div class="DISPLAY" id="DISPLAY_0_3">
-                <div class="CONSOLE" id="CONSOLE_0_3"></div>
-                <p class="DISPLAY_IDENTIFICATION">DISPLAY:0.3 - tty2</p>
-            </div>
-        ';
-        $this->graphical_client_basic_chrome_end();
-    }
-
-    private function graphical_client_basic_chrome() : void
-    {
-        echo "<!DOCTYPE html><html  id='html'><head><title>Fujin - " . $_SESSION["fjx_auth"]->fjlicensedto . "</title><meta charset='utf-8'>";
-        echo "
-            <script>	
-				var path = '" . $_SESSION["fjx_path"] . "';
-				var loginsound = '" . $_SESSION["fjx_path"] . $_SESSION["fjx_raijin"]->login . "';
-				var logoffsound = '" . $_SESSION["fjx_path"] . $_SESSION["fjx_raijin"]->logoff . "';
-				var systembeep = '" . $_SESSION["fjx_path"] . $_SESSION["fjx_raijin"]->systembeep . "';
-				var systembubble = '" . $_SESSION["fjx_path"] . $_SESSION["fjx_raijin"]->systembubble . "';
-				var systemvolume = " . $_SESSION["fjx_raijin"]->systemvolume . ";
-				var darkmode = " . $_SESSION["fjx_raijin"]->darkmode . ";
-				var prompt = '" . $_SESSION["prompt"] . "';
-                var nush = '" . $_SESSION["nush"] . "';
-                var guish = '" . $_SESSION["guish"] . "';
-                var sysgui = '" . FUJIN_PATH . "/kernelc.fujin';
-                var getsh = '" . $_SESSION["getsh"] . "';
-                var fjdwm = '" . $_SESSION["fjdwm"] . "';
-                var constate = '" . $_SESSION["constate"] . "';
-                var cmdhistfile = 'unsupported';
-                var basedash = '" . base64_encode(file_get_contents($_SESSION["fjx_root"] . "/etc/dash.fjconf")) . "';
-                var jscontainer = '" . $_SESSION["fjx_path"] . "/api/helpers/jscontainer.php';
-                var focus = '" . $_SESSION["fjx_path"] . "/api/helpers/focus.php';
-				var logged;
-
-                /** Fujin Gujeolpan */
-
-                var gui_endpoint = '". Fujin::c()->IFSec($this->me)->get_endpoint(EndpointEnum::GUIEndpoint) . "';
-                var cli_endpoint = '" . Fujin::c()->IFSec($this->me)->get_endpoint(EndpointEnum::WebConsoleEndpoint) . "';
-                var fcs_endpoint = '" . Fujin::c()->IFSec($this->me)->get_endpoint(EndpointEnum::FocusEndpoint) . "';
-                var jsv_endpoint = '" . Fujin::c()->IFSec($this->me)->get_endpoint(EndpointEnum::JavascriptEndpoint) . "';
-                var dwm_endpoint = '" . Fujin::c()->IFSec($this->me)->get_endpoint(EndpointEnum::DWMEndpoint) . "';
-                var prp_endpoint = '" . Fujin::c()->IFSec($this->me)->get_endpoint(EndpointEnum::PromptEndpoint) . "';
-                var upl_endpoint = '" . Fujin::c()->IFSec($this->me)->get_endpoint(EndpointEnum::UploadEndpoint) . "';
-		    </script>";
-        echo '
-            <meta name="viewport" content="width=device-width, initial-scale=1,viewport-fit=cover">
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
-            <link rel="stylesheet" href="' . $_SESSION["fjx_path"] . '/usr/share/raijin/lib/fjdwm.anim.min.css" id="animations_stylesheet"/>
-            <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-            <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" id="quill_stylesheet" disabled>
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@creativebulma/bulma-tooltip@1.2.0/dist/bulma-tooltip.min.css">
-            <link rel="stylesheet" href="https://cdn.vespotok.net/fujin/css/fujin3.basicshell.min.css" />
-            <link rel="stylesheet" href="' . $_SESSION["fjx_path"] . '/usr/share/raijin/lib/v32.raijin.css" />
-            <link rel="stylesheet" href="' . $_SESSION["fjx_path"] . '/usr/share/raijin/lib/fjdwm.min.css" id="fjdwm_stylesheet"/>
-            <link rel="stylesheet" href="https://cdn.datatables.net/1.11.3/css/dataTables.bulma.min.css" id="datatablesbulma_stylesheet" disabled>
-            <link rel="apple-touch-icon" sizes="180x180" href="' . $_SESSION["fjx_path"] . '/usr/share/identity/apple-touch-icon.png">
-            <link rel="icon" type="image/png" sizes="32x32" href="' . $_SESSION["fjx_path"] . '/usr/share/identity/favicon-32x32.png">
-            <link rel="icon" type="image/png" sizes="16x16" href="' . $_SESSION["fjx_path"] . '/usr/share/identity/favicon-16x16.png"><link rel="preconnect" href="https://fonts.googleapis.com">
-            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-            <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+EAN13+Text&display=swap" rel="stylesheet"  id="ean_stylesheet" disabled>
-            <link rel="stylesheet" type="text/css" href="https://cdn.vespotok.net/fujin/file-explorer/file-explorer.css">
-            <link rel="manifest" href="' . $_SESSION["fjx_path"] . '/usr/share/identity/site.webmanifest">
-            <link rel="mask-icon" href="' . $_SESSION["fjx_path"] . '/usr/share/identity/safari-pinned-tab.svg" color="#b21daf">
-            <link rel="shortcut icon" href="' . $_SESSION["fjx_path"] . '/usr/share/identity/favicon.ico">
-            <meta name="apple-mobile-web-app-title" content="Fujin - ' . $_SESSION["fjx_auth"]->fjlicensedto . '">
-            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-            <meta name="application-name" content="Fujin - ' . $_SESSION["fjx_auth"]->fjlicensedto . '">
-            <meta name="msapplication-TileColor" content="#603cba">
-            <meta name="msapplication-config" content="' . $_SESSION["fjx_path"] . '/usr/share/identity/browserconfig.xml">
-            <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.10.0/css/all.css" integrity="sha384-AYmEC3Yw5cVb3ZcuHtOA93w35dYTsvhLPVnYs9eStHfGJvOvKxVfELGroGkvsg+p" crossorigin="anonymous"/>
-            <link href="//cdn.datatables.net/1.11.0/css/jquery.dataTables.min.css" rel="stylesheet"  id="datatables_stylesheet" disabled>
-            <link rel="stylesheet" href="' . $_SESSION["fjx_path"] . '/usr/share/raijin/lib/raijin.ui.css?v=3.0" />
-            <link rel="stylesheet" href="https://cdn.vespotok.net/fujin/jqueryui/jquery-ui.min.css" />
-            <link rel="stylesheet" href="https://cdn.vespotok.net/fujin/jqueryui/jquery-ui.theme.min.css" />
-            <link rel="stylesheet" href="https://cdn.vespotok.net/fujin/jqueryui/jquery-ui.structure.min.css" />
-            <link rel="stylesheet" href="' . $_SESSION["fjx_path"] . '/apps/fterm/lib/jquery.terminal.min.css"  id="term_stylesheet" disabled>
-            <meta name="theme-color" content="#f0f0f0">
-            ';
-                if (isset($_GET["startup"])) {
-                    echo "<script> var startup_items = [
-                ['" . $_GET["startup"] . "', '" . $_GET["stdin"] . "']
-            ];</script>";
-                } else {
-                    echo "<script> var startup_items = [];</script>";
-                }
-                echo '
-            <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
-            <script src="https://cdn.vespotok.net/fujin/jqueryui/jquery-ui.min.js"></script>
-            <script src="' . $_SESSION["fjx_path"] . '/usr/share/raijin/lib/basesystem.min.js?v=2.2"></script>
-            <script src="' . $_SESSION["fjx_path"] . '/usr/share/raijin/lib/raijin.ui.v3.2.js?v=4.7"></script>
-            <script src="https://cdn.vespotok.net/fujin/js/fujin.framework.elements.js?v=3.85"></script>
-            <script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.11.2/moment.min.js" type="text/javascript" id="moment_script"></script>
-        ';
-        echo "</head><body>";
-    }
-
-    private function graphical_client_basic_chrome_end() : void
-    {
-        echo '<script src="https://unpkg.com/bulma-toast"></script><script type="text/javascript" src="https://cdn.vespotok.net/fujin/file-explorer/file-explorer.js"></script>';
-        echo "</body></html>";
+        return $instructions;
     }
 }
 ?>

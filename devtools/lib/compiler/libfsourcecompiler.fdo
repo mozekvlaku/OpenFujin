@@ -94,6 +94,7 @@ class LibFsourceCompiler implements ICompiler {
             case CompilationTarget::FUJIN_MANIFEST:
             case CompilationTarget::FUJIN_CONFIGURATION:
             case CompilationTarget::KERNEL_SELF:
+            case CompilationTarget::WINDOW_MODEL:
                 // Cannot binarize kernel
                 return $source;
                 break;
