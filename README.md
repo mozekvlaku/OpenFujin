@@ -68,6 +68,7 @@ It's important to follow the project's contribution guidelines and ensure that y
 ## Related
 
 - [FujinDomains](https://github.com/mozekvlaku/FujinDomains) - An Active Directory like login system for OpenFujin
+- [FujinDomains](https://github.com/mozekvlaku/Alpaca) - GUI server for OpenFujin built on Vue
 
 ## Support
 
